@@ -1,13 +1,13 @@
-#' printTris
+#' genTris
 #'
 #' This function returns all possible trinucleotide combinations
 #' @keywords trinucleotides
 #' @export
 #' @return Character string containing all 96 trinucleotides
-#' printTris()
+#' genTris()
 
 
-printTris <- function(){
+genTris <- function(){
   all.tri = c()
     for(i in c("A", "C", "G", "T")){
       for(j in c("C", "T")){

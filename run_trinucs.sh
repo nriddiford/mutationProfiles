@@ -28,8 +28,8 @@ if [[ -f "data/GW.snv.dist.txt" ]]
 then
   echo "Cleaning up old files"
   rm data/GW.snv.dist.txt
-  rm data/GW.trinucs.txt
-  rm data/chroms.trinucs.txt
+  #rm data/GW.trinucs.txt
+  #rm data/chroms.trinucs.txt
 fi
 
 if [[ $varscan -eq 1 ]]

@@ -50,8 +50,8 @@ $data_ref = parse_varscan($in_file) if $in_file;
 my ($filtered_data_ref) = get_context($data_ref);
 my ($sample, $all_snvs_count, $genome_wide_snvs_ref, $snvs_by_chrom_ref, $snp_count_ref, $snp_freq_ref, $tri_count_ref, $snv_dist_ref) = count($filtered_data_ref);
 
-write_snvs_per_chrom($chrom_out_file, $sample, $snvs_by_chrom_ref, $snp_count_ref);
-write_snvs_genome_wide($all_snvs_count, $sample, $genome_wide_snvs_ref);
+# write_snvs_per_chrom($chrom_out_file, $sample, $snvs_by_chrom_ref, $snp_count_ref);
+# write_snvs_genome_wide($all_snvs_count, $sample, $genome_wide_snvs_ref);
 write_dataframe($all_snvs_count, $sample, $snv_dist_ref);
 
 
@@ -120,13 +120,12 @@ sub parse_vcf {
     chomp;
     next if /^#/;
     my ($chr, $pos, $ref, $alt) = (split)[0,1,3,4];
-    my ($n_freq, $t_freq) = ('-', '-');
     next if $ref eq 'N';
     my $type = 'somatic';
     if ($_ =~ /VT=(.*?);/){
       $type = $1;
     }
-    push @vars, [$sample, $chr, $pos, $ref, $alt, $n_freq, $t_freq, $type];
+    push @vars, [$sample, $chr, $pos, $ref, $alt, $type];
   }
   return(\@vars);
 }
@@ -137,7 +136,7 @@ sub get_context {
   my (@filtered_vars, %snvs);
 
   foreach my $var ( @$var_ref ) {
-    my ($sample, $chr, $pos, $ref, $alt, $n_freq, $t_freq, $type) = @$var;
+    my ($sample, $chr, $pos, $ref, $alt, $type) = @$var;
 
    	if ( length $ref == 1 and length $alt == 1 and $chroms{$chr} ) {
 
@@ -152,7 +151,7 @@ sub get_context {
 
       my ($trans_trinuc, $grouped_ref, $grouped_alt) = group_muts($trinuc, $ref, $alt);
 
-      push @filtered_vars, [$sample, $chr, $pos, $ref, $alt, $n_freq, $t_freq, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt, $type];
+      push @filtered_vars, [$sample, $chr, $pos, $ref, $alt, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt, $type];
     }
   }
   return(\@filtered_vars);
@@ -200,7 +199,7 @@ sub count {
   my $sample;
 
   foreach my $var ( @$var_ref ) {
-    my ($samp, $chr, $pos, $ref, $alt, $n_freq, $t_freq, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt, $type) = @$var;
+    my ($samp, $chr, $pos, $ref, $alt, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt, $type) = @$var;
     $sample = $samp;
 
     $genome_wide_snvs{$trinuc}{"$ref>$alt"}++;		# count genome-wide trinuc transformations: "A>C"
@@ -216,9 +215,9 @@ sub count {
     push @snv_dist, [ $sample, $chr, $pos, $ref, $alt, $trinuc, "$ref>$alt", $trans_trinuc, "$grouped_ref>$grouped_alt", $type ];
 
     my $snp_count = $snp_freq{$chr}{$ref}{$alt};
-    my ($mut_cont) = eval sprintf('%.1f', $snp_count/$snp_count{$chr} * 100);
+    # my ($mut_cont) = eval sprintf('%.1f', $snp_count/$snp_count{$chr} * 100);
 
-    debug($chr, $pos, $ref, $alt, $trinuc, $mut_cont) if $debug;
+    debug($chr, $pos, $ref, $alt, $trinuc) if $debug;
 
   }
   return($sample, $all_snvs_count, \%genome_wide_snvs, \%snvs_by_chrom, \%snp_count, \%snp_freq, \%tri_count, \@snv_dist);
@@ -285,7 +284,6 @@ sub debug {
   printf "%-30s %-s\n", "SNV:", $ref;
   printf "%-30s %-s\n", "Position:", "$chr\:$pos";
   printf "%-30s %-s\n", "Transition:", "$ref>$alt";
-  printf "%-30s %-s\n", "Contribution to mutation load:", "$mut_cont\%";
   printf "%-30s %-s\n", "Trinucleotide:", $trinuc;
   say "***********";
 }

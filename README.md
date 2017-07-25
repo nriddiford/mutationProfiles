@@ -21,7 +21,7 @@ cpanm Bio::Perl
 ## Extracting SNV calls from Mutect2 or Freebayes vcf files or Varscan2 native format:
 
 Move all `.vcf` files into `data/` and run `bash run_trinucs.sh -g <path to genome.fasta>`  
-For Varscan native data run: `bash run_trinucs.sh -v -g <path to genome.fasta>` 
+For Varscan native data run: `bash run_trinucs.sh -v -g <path to genome.fasta>`
 
 This will run `script/trinucs.pl` for each `.vcf` file in `data/`, and write data from all samples to `data/GW.snv.dist.txt`
 
@@ -63,7 +63,7 @@ getData : function (infile = "data/GW.snv.dist.txt")
 mutSigs : function (samples = NA, pie = NA)  
 mutSpectrum : function ()  
 notchSnvs : function ()  
-printTris : function ()  
+genTris : function ()  
 samplesPlot : function (count = NA)  
 snvStats : function ()  
 triFreq : function (genome = NA, count = NA)
