@@ -14,7 +14,6 @@ mutSigs <- function(samples=NA, pie=NA){
   suppressMessages(require(deconstructSigs))
   
   if(!exists('scaling_factor')){
-    source('R/dmel6.trinucs.R')
     cat("calculationg trinucleotide frequencies in genome\n")
     scaling_factor <-triFreq()
   }
