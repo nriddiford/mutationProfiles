@@ -11,7 +11,7 @@ cd mutationProfiles
 ```
 ## Dependencies
 
-`trinucs.pl` requires BioPerl, which can be installed from cpanm:
+`trinucs.pl` requires [BioPerl](http://bioperl.org/INSTALL.html), which can be installed from cpanm:
 
 ```
 brew install cpanm
@@ -87,7 +87,7 @@ mutSpectrum()
 
 ### Plot mutational signatures in data
 
-This plots the output of the package (deconstructSigs)[https://github.com/raerose01/deconstructSigs/tree/master/R] 
+This plots the output of the package [deconstructSigs](https://github.com/raerose01/deconstructSigs/tree/master/R)
 ```{R}
 mutSigs()
 ```
