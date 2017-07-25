@@ -18,9 +18,10 @@ brew install cpanm
 cpanm Bio::Perl
 ```
 
-## Extracting SNV calls from Mutect2 or Freebayes vcf files:
+## Extracting SNV calls from Mutect2 or Freebayes vcf files or Varscan2 native format:
 
-Move all `.vcf` files into `data/` and run `bash run_trinucs.sh -g <path to genome.fasta>`
+Move all `.vcf` files into `data/` and run `bash run_trinucs.sh -g <path to genome.fasta>`  
+For Varscan native data run: `bash run_trinucs.sh -v -g <path to genome.fasta>` 
 
 This will run `script/trinucs.pl` for each `.vcf` file in `data/`, and write data from all samples to `data/GW.snv.dist.txt`
 
