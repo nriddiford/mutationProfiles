@@ -85,7 +85,7 @@ sub annotate_SNVs {
     ($hit_object, $hit_feature, $hit_gene,  $hit_ref) = getbps($chrom, $pos, $hit_object, \%hits);
     %hits = %{ $hit_ref };
 
-    say "SNV in sample $sample: $chrom\:$pos is in $hit_object ($hit_feature of $hit_gene)";
+    say "snv in sample $sample: $chrom\:$pos is in $hit_object";
 
     print $annotated_snvs join("\t", $_, $hit_feature, $hit_gene) . "\n";
     # $call++;

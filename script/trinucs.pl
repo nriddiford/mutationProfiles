@@ -13,7 +13,7 @@ my $genome_file;
 my $vcf_file;
 my $chrom_out_file = 'chroms.trinucs.txt';
 my $genome_out_file = 'GW.trinucs.txt';
-my $snv_dist_file = 'GW.snv.dist.txt';
+my $snv_dist_file = 'combined_snvs.txt';
 my $debug;
 my $quiet;
 my $help;
@@ -224,47 +224,47 @@ sub count {
 }
 
 
-sub write_snvs_per_chrom {
-  my ($chrom_out_file, $sample, $snvs_by_chrom_ref, $snp_count_ref) = @_;
-
-  my %snvs_by_chrom = %{ $snvs_by_chrom_ref};
-  my %snp_count = %{ $snp_count_ref};
-
-  open my $chrom_out, '>>',  $chrom_out_file or die $!;
-  say "Printing out snvs per chromosome to '$chrom_out_file' for $sample...";
-
-  for my $chr (sort keys %snvs_by_chrom){
-    for my $tri (sort keys %{$snvs_by_chrom{$chr}} ) {
-      for my $ref_alt (sort keys %{$snvs_by_chrom{$chr}{$tri}} ){
-        my ($count) = $snvs_by_chrom{$chr}{$tri}{$ref_alt};
-        my ($freq) = eval sprintf('%.2f', ( $count/$snp_count{$chr} ) * 100);
-        print $chrom_out join("\t", $chr, $tri, $ref_alt, $freq, $sample) . "\n";
-        # print join("\t", $chr, $tri, $ref_alt, $freq, $sample) . "\n";
-      }
-    }
-  }
-  say "...done";
-}
-
-
-sub write_snvs_genome_wide {
-  my ($all_snvs_count, $sample, $genome_wide_snvs_ref) = @_;
-  my %genome_wide_snvs = %{ $genome_wide_snvs_ref };
-
-  open my $genome_out, '>>',  $genome_out_file or die $!;
-
-  say "Printing out genome-wide snvs '$genome_out_file' for $sample...";
-
-  for my $tr (sort keys %genome_wide_snvs){
-    for my $ref_alt (sort keys %{ $genome_wide_snvs{$tr} } ) {
-      my ($count) = $genome_wide_snvs{$tr}{$ref_alt};
-      my ($freq) = eval sprintf('%.2f', ( $count/$all_snvs_count ) * 100);
-      print $genome_out join("\t", $tr, $ref_alt, $freq, $sample) . "\n";
-      # print join("\t", $tr, $ref_alt, $freq, $sample) . "\n";
-    }
-  }
-  say "...done";
-}
+# sub write_snvs_per_chrom {
+#   my ($chrom_out_file, $sample, $snvs_by_chrom_ref, $snp_count_ref) = @_;
+#
+#   my %snvs_by_chrom = %{ $snvs_by_chrom_ref};
+#   my %snp_count = %{ $snp_count_ref};
+#
+#   open my $chrom_out, '>>',  $chrom_out_file or die $!;
+#   say "Printing out snvs per chromosome to '$chrom_out_file' for $sample...";
+#
+#   for my $chr (sort keys %snvs_by_chrom){
+#     for my $tri (sort keys %{$snvs_by_chrom{$chr}} ) {
+#       for my $ref_alt (sort keys %{$snvs_by_chrom{$chr}{$tri}} ){
+#         my ($count) = $snvs_by_chrom{$chr}{$tri}{$ref_alt};
+#         my ($freq) = eval sprintf('%.2f', ( $count/$snp_count{$chr} ) * 100);
+#         print $chrom_out join("\t", $chr, $tri, $ref_alt, $freq, $sample) . "\n";
+#         # print join("\t", $chr, $tri, $ref_alt, $freq, $sample) . "\n";
+#       }
+#     }
+#   }
+#   say "...done";
+# }
+#
+#
+# sub write_snvs_genome_wide {
+#   my ($all_snvs_count, $sample, $genome_wide_snvs_ref) = @_;
+#   my %genome_wide_snvs = %{ $genome_wide_snvs_ref };
+#
+#   open my $genome_out, '>>',  $genome_out_file or die $!;
+#
+#   say "Printing out genome-wide snvs '$genome_out_file' for $sample...";
+#
+#   for my $tr (sort keys %genome_wide_snvs){
+#     for my $ref_alt (sort keys %{ $genome_wide_snvs{$tr} } ) {
+#       my ($count) = $genome_wide_snvs{$tr}{$ref_alt};
+#       my ($freq) = eval sprintf('%.2f', ( $count/$all_snvs_count ) * 100);
+#       print $genome_out join("\t", $tr, $ref_alt, $freq, $sample) . "\n";
+#       # print join("\t", $tr, $ref_alt, $freq, $sample) . "\n";
+#     }
+#   }
+#   say "...done";
+# }
 
 sub write_dataframe {
   my ($all_snvs_count, $sample, $snv_dist_ref) = @_;

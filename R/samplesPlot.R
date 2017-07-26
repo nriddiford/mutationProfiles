@@ -15,13 +15,14 @@ samplesPlot <- function(count=NA){
   
   if(is.na(count)){
     p<-p + geom_bar(aes(x = grouped_trans, y = (..count..)/sum(..count..), group = sample, fill = sample), position="dodge",stat="count")
+    p<-p + scale_y_continuous("Relative contribution to total mutation load", expand = c(0.0, .001))
     tag='_freq'
   }
   else{
     p<-p + geom_bar(aes(x = grouped_trans, y = ..count.., group = sample, fill = sample), position="dodge",stat="count")
+    p<-p + scale_y_continuous("Count", expand = c(0.0, .001))
     tag='_count'
   }
-  p<-p + scale_y_continuous("Relative contribution to total mutation load", expand = c(0.0, .001))
   p<-p + scale_x_discrete("Mutation class", limits=mut_class)
   p<-p + cleanTheme() + 
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),

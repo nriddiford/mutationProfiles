@@ -1,0 +1,459 @@
+library(ggplot2)
+library(dplyr)
+library(RColorBrewer)
+library(BSgenome.Dmelanogaster.UCSC.dm6)
+library(deconstructSigs)
+
+
+#' getData
+#'
+#' Function to clean cnv files
+#' @param infile File to process [Required]
+#' @keywords get 
+#' @import dplyr
+#' @export
+#' @return Dataframe
+
+getData <- function(infile = "data/annotated_snvs.txt"){
+  data<-read.delim(infile, header = F)
+  
+  colnames(data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "type", "feature", "gene")
+  levels(data$type) <- tolower(levels(data$type))
+  #data <- filter(data, type == 'germline')
+  
+  #filter on chroms
+  # data<-filter(data, chrom != "Y" & chrom != "4")
+  #filter out samples
+  data<-filter(data, sample != "A373R7")
+  data<-droplevels(data)
+  dir.create(file.path("plots"), showWarnings = FALSE)
+  return(data)
+}
+
+
+#' cleanTheme
+#'
+#' Clean theme for plotting
+#' @param base_size Base font size [Default 12]
+#' @import ggplot2
+#' @keywords theme
+#' @export
+
+
+cleanTheme <- function(base_size = 12){
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 20),
+    panel.background = element_blank(),
+    plot.background = element_rect(fill = "transparent",colour = NA),
+    panel.grid.minor = element_blank(),
+    panel.grid.major = element_blank(),
+    axis.line.x = element_line(color="black", size = 0.5),
+    axis.line.y = element_line(color="black", size = 0.5),
+    axis.text = element_text(size=12),
+    axis.title = element_text(size=30)
+  )
+}
+
+
+#' genTris
+#'
+#' This function returns all possible trinucleotide combinations
+#' @keywords trinucleotides
+#' @export
+#' @return Character string containing all 96 trinucleotides
+#' genTris()
+
+
+genTris <- function(){
+  all.tri = c()
+    for(i in c("A", "C", "G", "T")){
+      for(j in c("C", "T")){
+        for(k in c("A", "C", "G", "T")){
+          if(j != k){
+            for(l in c("A", "C", "G", "T")){
+              tmp = paste(i, "[", j, ">", k, "]", l, sep = "")
+              all.tri = c(all.tri, tmp)
+            }
+          }
+        }
+      }
+    }
+  all.tri <- all.tri[order(substr(all.tri, 3, 5))]
+  return(all.tri)
+}
+
+
+
+#' chromDist
+#'
+#' Plot genome-wide snv distribution 
+#' @import ggplot2
+#' @keywords distribution
+#' @export
+
+
+chromDist <- function(notch=0){
+  data<-getData()
+
+  cols<-setCols(data, "grouped_trans")
+  
+  cat("Plotting SVs by mutation class\n")
+  
+  p<-ggplot(data)
+  p<-p + geom_histogram(aes(pos/1000000, fill = grouped_trans), binwidth=0.1, alpha = 0.8)  
+  p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
+  p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33),expand = c(0.01, 0.01))
+  p<-p + scale_y_continuous("Number of snvs", expand = c(0.01, 0.01))
+  p<-p + cleanTheme() +
+    theme(axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text = element_text(size=12),
+          axis.title = element_text(size=20),
+          strip.text.x = element_text(size = 15)
+    )
+  
+  p<-p + cols
+  
+  chrom_outfile<-paste("snv_dist_genome.pdf")
+  cat("Writing file", chrom_outfile, "\n")
+  ggsave(paste("plots/", chrom_outfile, sep=""), width = 20, height = 10)
+  
+  p
+}
+
+
+#' featuresHit
+#'
+#' Show top hit features
+#' @import ggplot2
+#' @keywords features
+#' @export
+
+
+featuresHit <- function(){
+  data<-getData()
+  
+  # To condense exon counts into "exon"
+  data$feature<-as.factor(gsub("_.*", "", data$feature))
+  
+  # Reoders descending
+  data$feature<-factor(data$feature, levels = names(sort(table(data$feature), decreasing = TRUE)))
+  
+  #cols<-set_cols(data, "feature")
+  
+  p<-ggplot(data)
+  p<-p + geom_bar(aes(feature, fill = feature))
+  #p<-p + cols
+  p<-p + cleanTheme() +
+    theme(axis.title.x=element_blank(),
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"))
+  p<-p + scale_x_discrete(expand = c(0.01, 0.01))
+  p<-p + scale_y_continuous(expand = c(0.01, 0.01))
+  
+  features_outfile<-paste("hit_features_count.pdf")
+  cat("Writing file", features_outfile, "\n")
+  ggsave(paste("plots/", features_outfile, sep=""), width = 20, height = 10)
+  
+  p
+}
+
+
+#' geneHit
+#'
+#' Show top hit genes
+#' @import dplyr
+#' @keywords gene
+#' @export
+
+
+geneHit <- function(){
+  data<-getData()
+  
+  data<-filter(data, gene != "intergenic")
+  
+  hit_count<-sort(table(unlist(data$gene)), decreasing = T)
+  head(hit_count)
+
+}
+
+
+#' genomeSnvs
+#'
+#' Plot snvs accross genome
+#' @import ggplot2
+#' @keywords genome
+#' @export
+
+
+genomeSnvs <- function(){
+  data<-getData()
+  data<-filter(data, chrom != "Y" & chrom != "4")
+  p<-ggplot(data)
+  p<-p + geom_point(aes(pos/1000000, sample, colour = trans))
+  # p<-p + guides(color = FALSE)
+  p<-p + theme(axis.text.x = element_text(angle=45, hjust = 1))
+  
+  p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
+  p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
+  
+  p
+}
+
+
+
+
+#' mutSigs
+#'
+#' Calculate and plot the mutational signatures accross samples using the package `deconstructSigs`
+#' @param samples Calculates and plots mutational signatures on a per-sample basis [Default no]
+#' @param pie Plot a pie chart shwoing contribution of each signature to overall profile [Default no] 
+#' @import deconstructSigs
+#' @import BSgenome.Dmelanogaster.UCSC.dm6
+#' @keywords signatures
+#' @export
+
+
+mutSigs <- function(samples=NA, pie=NA){
+  suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
+  suppressMessages(require(deconstructSigs))
+  
+  if(!exists('scaling_factor')){
+    cat("calculationg trinucleotide frequencies in genome\n")
+    scaling_factor <-triFreq()
+  }
+  
+  data<-getData()
+  genome <- BSgenome.Dmelanogaster.UCSC.dm6
+  
+  if(is.na(samples)){
+    data$tissue = 'All'
+    sigs.input <- mut.to.sigs.input(mut.ref = data, sample.id = "tissue", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
+    sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = 'All',
+                              contexts.needed = TRUE,
+                              tri.counts.method = scaling_factor
+                              )
+
+    cat("Writing to file 'plots/all_signatures.pdf'\n")
+    pdf('plots/all_signatures.pdf', width = 20, height = 10)
+    plotSignatures(sig_plot)
+    dev.off()
+    plotSignatures(sig_plot)
+    
+
+    if(!is.na(pie)){
+      makePie(sig_plot)
+    }
+  }
+  
+  else{
+  	sigs.input <- mut.to.sigs.input(mut.ref = data, sample.id = "sample", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
+  	cat("sample", "snv_count", sep="\t", "\n")
+      for(s in levels(data$sample)) {
+        snv_count<-nrow(filter(data, sample == s))
+        
+        if(snv_count > 50){
+          cat(s, snv_count, sep="\t", "\n")
+        
+          sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id = s,
+                        contexts.needed = TRUE,
+                        tri.counts.method = scaling_factor)
+          
+          outfile<-(paste('plots/', s, '_signatures.pdf', sep = ''))
+          cat("Writing to file", outfile, "\n")
+          pdf(outfile, width = 20, height = 10)
+          plotSignatures(sig_plot)
+          dev.off()
+          plotSignatures(sig_plot)
+          
+          if(!is.na(pie)){
+            makePie(sig_plot)
+          }
+        }
+      }
+  }
+}
+
+
+#' mutSpectrum
+#'
+#' Plots the mutations spectrum for all samples combined
+#' @import ggplot2
+#' @keywords spectrum
+#' @export
+
+mutSpectrum <- function(){
+  data<-getData()
+  cat("Showing global contribution of tri class to mutation load", "\n")
+ 
+  p<-ggplot(data)
+  p<-p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), position="dodge",stat="count")
+  p<-p + scale_y_continuous("Relative contribution to mutation load", expand = c(0.0, .0005))
+  p<-p + scale_x_discrete("Genomic context", expand = c(.005, .005))
+  p<-p + cleanTheme() + 
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.title = element_text(size=20),
+          strip.text.x = element_text(size = 15)
+          )
+  p<-p + labs(fill="Mutation class")
+  p<-p + facet_wrap(~grouped_trans, ncol = 3, scale = "free_x" )
+  
+  mut_spectrum<-paste("mutation_spectrum.pdf")
+  cat("Writing file", mut_spectrum, "\n")
+  ggsave(paste("plots/", mut_spectrum, sep=""), width = 20, height = 10)
+  p
+}
+
+
+#' notchSnvs
+#'
+#' Plot snvs around Notch by sample
+#' @import ggplot2
+#' @keywords notch
+#' @export
+
+notchSnvs <- function(){
+  data<-getData()
+  data<-filter(data, chrom == "X", pos >= 3000000, pos <= 3300000)
+  
+  if(nrow(data) == 0){
+    stop("There are no snvs in Notch. Exiting\n")
+  }
+  
+  p<-ggplot(data)
+  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 2))
+  p<-p + guides(size = FALSE, sample = FALSE)
+  p<-p + cleanTheme() +
+    theme(axis.title.y=element_blank(),
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted")
+    )
+  p<-p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(3,3.3,by=0.05), limits=c(3, 3.301))
+  p<-p + annotate("rect", xmin=3.000000, xmax=3.134532, ymin=0, ymax=0.1, alpha=.2, fill="green")
+  p<-p + annotate("rect", xmin=3.134870, xmax=3.172221, ymin=0, ymax=0.1, alpha=.2, fill="skyblue")
+  p<-p + annotate("rect", xmin=3.176440, xmax=3.300000, ymin=0, ymax=0.1, alpha=.2, fill="red")
+  
+  p
+}
+
+
+#' samplesPlot
+#'
+#' Plot the snv distribution for each sample
+#' @import ggplot2
+#' @param count Output total counts instead of frequency if set [Default no] 
+#' @keywords spectrum
+#' @export
+
+samplesPlot <- function(count=NA){
+  data<-getData()
+
+  mut_class<-c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
+
+  p<-ggplot(data)
+  
+  if(is.na(count)){
+    p<-p + geom_bar(aes(x = grouped_trans, y = (..count..)/sum(..count..), group = sample, fill = sample), position="dodge",stat="count")
+    p<-p + scale_y_continuous("Relative contribution to total mutation load", expand = c(0.0, .001))
+    tag='_freq'
+  }
+  else{
+    p<-p + geom_bar(aes(x = grouped_trans, y = ..count.., group = sample, fill = sample), position="dodge",stat="count")
+    p<-p + scale_y_continuous("Count", expand = c(0.0, .001))
+    tag='_count'
+  }
+  p<-p + scale_x_discrete("Mutation class", limits=mut_class)
+  p<-p + cleanTheme() + 
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.title = element_text(size=20),
+          strip.text.x = element_text(size = 10)
+          )
+  p<-p + facet_wrap(~sample, ncol = 4, scale = "free_x" )
+  
+  samples_mut_spect<-paste("mutation_spectrum_samples", tag, ".pdf", sep = '')
+  cat("Writing file", samples_mut_spect, "\n")
+  ggsave(paste("plots/", samples_mut_spect, sep=""), width = 20, height = 10)
+  p
+}
+
+
+#' chromDist
+#'
+#' Show top hit genes
+#' @import RColorBrewer
+#' @param df Dataframe [Required]
+#' @param col Column of dataframe. Colours will be set to levels(df$cols) [Required]
+#' @keywords cols
+#' @export
+
+
+setCols <- function(df, col){
+  names<-levels(df[[col]])
+  cat("Setting colour levles:", names, "\n")
+  level_number<-length(names)
+  mycols<-brewer.pal(level_number, "Set2")
+  names(mycols) <- names
+  colScale <- scale_fill_manual(name = col,values = mycols)
+  return(colScale)
+}
+
+
+#' snvStats
+#'
+#' Calculate some basic stats for snv data
+#' @import dplyr
+#' @keywords stats
+#' @export
+
+
+snvStats <- function(){
+  data<-getData()
+  cat("sample", "snvs", sep='\t', "\n")
+  rank<-sort(table(data$sample), decreasing = TRUE)
+  rank<-as.array(rank)
+  
+  for (i in 1:nrow(rank)){
+    cat(names(rank[i]), rank[i], sep='\t', "\n")
+  }
+  
+  all_ts<-nrow(filter(data, trans == "A>G" | trans == "C>T" | trans == "G>A" | trans == "T>C"))
+  all_tv<-nrow(filter(data, trans != "A>G" & trans != "C>T" & trans != "G>A" & trans != "T>C"))
+  ts_tv<-all_ts/all_tv
+  cat("ts/tv =", ts_tv)
+}
+
+
+#' triFreq
+#'
+#' This function counts the number of times each triunucleotide is found in a supplied genome
+#' @param genome BS.genome file defaults to BSgenome.Dmelanogaster.UCSC.dm6
+#' @param count Output total counts instead of frequency if set [Default no] 
+#' @import dplyr
+#' @keywords trinucleotides
+#' @export
+#' @return Dataframe of trinucs and freqs (or counts if count=1)
+
+triFreq <- function(genome=NA, count=NA){
+  if(is.na(genome)){
+    cat("No genome specfied, defaulting to 'BSgenome.Dmelanogaster.UCSC.dm6'\n")
+    library(BSgenome.Dmelanogaster.UCSC.dm6, quietly = TRUE)
+    genome <- BSgenome.Dmelanogaster.UCSC.dm6
+  }
+  
+  params <- new("BSParams", X = Dmelanogaster, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
+  data<-as.data.frame(bsapply(params))
+  data$genome<-as.integer(rowSums(data))
+  data$genome_adj<-(data$genome*2)
+  
+  if(!is.na(count)){
+    tri_count<-data['genome_adj']
+    tri_count<-cbind(tri = rownames(tri_count), tri_count)
+    colnames(tri_count) <- c("tri", "count")
+    rownames(tri_count) <- NULL
+    return(tri_count)
+  }
+  else{
+    data$x <- (1/data$genome)
+    scaling_factor<-data['x']
+    return(scaling_factor)
+  }
+  
+}

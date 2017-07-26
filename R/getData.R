@@ -7,10 +7,10 @@
 #' @export
 #' @return Dataframe
 
-getData <- function(infile = "data/GW.snv.dist.txt"){
+getData <- function(infile = "data/annotated_snvs.txt"){
   data<-read.delim(infile, header = F)
   
-  colnames(data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "type")
+  colnames(data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "type", "feature", "gene")
   levels(data$type) <- tolower(levels(data$type))
   #data <- filter(data, type == 'germline')
   

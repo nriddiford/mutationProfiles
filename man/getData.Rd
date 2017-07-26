@@ -4,7 +4,7 @@
 \alias{getData}
 \title{getData}
 \usage{
-getData(infile = "data/GW.snv.dist.txt")
+getData(infile = "data/annotated_snvs.txt")
 }
 \arguments{
 \item{infile}{File to process [Required]}
