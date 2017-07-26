@@ -186,17 +186,19 @@ featuresHit <- function(){
 #' Show top hit genes
 #' @import dplyr
 #' @keywords gene
+#' @param n Show top n hits [Default 10] 
 #' @export
 
-geneHit <- function(){
+geneHit <- function(n=10){
   data<-getData()
-  
   data<-filter(data, gene != "intergenic")
   
-  hit_count<-sort(table(unlist(data$gene)), decreasing = T)
-  head(hit_count)
-
+  hit_count<-as.data.frame(sort(table(unlist(data$gene)), decreasing = T))
+  
+  colnames(hit_count)<- c("gene", "count")
+  head(hit_count, n)
 }
+
 
 
 #' genomeSnvs
@@ -208,7 +210,7 @@ geneHit <- function(){
 
 genomeSnvs <- function(){
   data<-getData()
-  data<-filter(data, chrom != "Y" & chrom != "4")
+  data<-filter(data, chrom != "4")
   p<-ggplot(data)
   p<-p + geom_point(aes(pos/1000000, sample, colour = trans))
   # p<-p + guides(color = FALSE)

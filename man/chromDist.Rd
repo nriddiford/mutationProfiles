@@ -4,7 +4,7 @@
 \alias{chromDist}
 \title{chromDist}
 \usage{
-chromDist(notch = 0)
+chromDist(object = NA, notch = 0)
 }
 \description{
 Plot genome-wide snv distribution

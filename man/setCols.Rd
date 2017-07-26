@@ -2,7 +2,7 @@
 % Please edit documentation in R/setCols.R
 \name{setCols}
 \alias{setCols}
-\title{chromDist}
+\title{setCols}
 \usage{
 setCols(df, col)
 }
