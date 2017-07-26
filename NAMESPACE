@@ -2,6 +2,7 @@
 
 export(chromDist)
 export(cleanTheme)
+export(featureEnrichment)
 export(featuresHit)
 export(genTris)
 export(geneHit)

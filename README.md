@@ -23,7 +23,7 @@ cpanm Bio::Perl
 Move all `.vcf` files into `data/` and run `bash run_trinucs.sh -g <path to genome.fasta>`  
 For Varscan native data run: `bash run_trinucs.sh -v -g <path to genome.fasta>`
 
-This will run `script/trinucs.pl` for each `.vcf` file in `data/`, and write data from all samples to `data/combined_snvs.txt`
+This will run `script/trinucs.pl` on each `.vcf` file in `data/`, and write data from all samples to `data/combined_snvs.txt`
 
 e.g.:
 ```
