@@ -24,7 +24,7 @@ getData <- function(infile = "data/annotated_snvs.txt"){
   #filter on chroms
   # data<-filter(data, chrom != "Y" & chrom != "4")
   #filter out samples
-  data<-filter(data, sample != "A373R7")
+  data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
   data<-droplevels(data)
   dir.create(file.path("plots"), showWarnings = FALSE)
   return(data)
@@ -38,7 +38,6 @@ getData <- function(infile = "data/annotated_snvs.txt"){
 #' @import ggplot2
 #' @keywords theme
 #' @export
-
 
 cleanTheme <- function(base_size = 12){
   theme(
@@ -63,7 +62,6 @@ cleanTheme <- function(base_size = 12){
 #' @return Character string containing all 96 trinucleotides
 #' genTris()
 
-
 genTris <- function(){
   all.tri = c()
     for(i in c("A", "C", "G", "T")){
@@ -83,6 +81,25 @@ genTris <- function(){
 }
 
 
+#' setCols
+#'
+#' Show top hit genes
+#' @import RColorBrewer
+#' @param df Dataframe [Required]
+#' @param col Column of dataframe. Colours will be set to levels(df$cols) [Required]
+#' @keywords cols
+#' @export
+
+setCols <- function(df, col){
+  names<-levels(df[[col]])
+  cat("Setting colour levles:", names, "\n")
+  level_number<-length(names)
+  mycols<-brewer.pal(level_number, "Set2")
+  names(mycols) <- names
+  colScale <- scale_fill_manual(name = col,values = mycols)
+  return(colScale)
+}
+
 
 #' chromDist
 #'
@@ -91,16 +108,23 @@ genTris <- function(){
 #' @keywords distribution
 #' @export
 
-
-chromDist <- function(notch=0){
+chromDist <- function(object=NA, notch=0){
   data<-getData()
-
-  cols<-setCols(data, "grouped_trans")
+  ext<-'.pdf'
+  if(is.na(object)){
+    object<-'grouped_trans'
+    cols<-setCols(data, "grouped_trans")
+  }
   
-  cat("Plotting SVs by mutation class\n")
+  if(notch){
+    data<-exclude_notch()
+    ext<-'_excl.N.pdf'
+  }
+
+  cat("Plotting snvs by", object, "\n")
   
   p<-ggplot(data)
-  p<-p + geom_histogram(aes(pos/1000000, fill = grouped_trans), binwidth=0.1, alpha = 0.8)  
+  p<-p + geom_histogram(aes(pos/1000000, fill = get(object)), binwidth=0.1, alpha = 0.8)  
   p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
   p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33),expand = c(0.01, 0.01))
   p<-p + scale_y_continuous("Number of snvs", expand = c(0.01, 0.01))
@@ -111,9 +135,10 @@ chromDist <- function(notch=0){
           strip.text.x = element_text(size = 15)
     )
   
-  p<-p + cols
-  
-  chrom_outfile<-paste("snv_dist_genome.pdf")
+  if (object == 'grouped_trans'){
+    p<-p + cols
+  }  
+  chrom_outfile<-paste("snv_dist_genome_by_", object, ext, sep = "")
   cat("Writing file", chrom_outfile, "\n")
   ggsave(paste("plots/", chrom_outfile, sep=""), width = 20, height = 10)
   
@@ -127,7 +152,6 @@ chromDist <- function(notch=0){
 #' @import ggplot2
 #' @keywords features
 #' @export
-
 
 featuresHit <- function(){
   data<-getData()
@@ -164,7 +188,6 @@ featuresHit <- function(){
 #' @keywords gene
 #' @export
 
-
 geneHit <- function(){
   data<-getData()
   
@@ -183,7 +206,6 @@ geneHit <- function(){
 #' @keywords genome
 #' @export
 
-
 genomeSnvs <- function(){
   data<-getData()
   data<-filter(data, chrom != "Y" & chrom != "4")
@@ -199,8 +221,6 @@ genomeSnvs <- function(){
 }
 
 
-
-
 #' mutSigs
 #'
 #' Calculate and plot the mutational signatures accross samples using the package `deconstructSigs`
@@ -210,7 +230,6 @@ genomeSnvs <- function(){
 #' @import BSgenome.Dmelanogaster.UCSC.dm6
 #' @keywords signatures
 #' @export
-
 
 mutSigs <- function(samples=NA, pie=NA){
   suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
@@ -375,34 +394,12 @@ samplesPlot <- function(count=NA){
 }
 
 
-#' chromDist
-#'
-#' Show top hit genes
-#' @import RColorBrewer
-#' @param df Dataframe [Required]
-#' @param col Column of dataframe. Colours will be set to levels(df$cols) [Required]
-#' @keywords cols
-#' @export
-
-
-setCols <- function(df, col){
-  names<-levels(df[[col]])
-  cat("Setting colour levles:", names, "\n")
-  level_number<-length(names)
-  mycols<-brewer.pal(level_number, "Set2")
-  names(mycols) <- names
-  colScale <- scale_fill_manual(name = col,values = mycols)
-  return(colScale)
-}
-
-
 #' snvStats
 #'
 #' Calculate some basic stats for snv data
 #' @import dplyr
 #' @keywords stats
 #' @export
-
 
 snvStats <- function(){
   data<-getData()

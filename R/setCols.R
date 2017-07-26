@@ -1,4 +1,4 @@
-#' chromDist
+#' setCols
 #'
 #' Show top hit genes
 #' @import RColorBrewer
