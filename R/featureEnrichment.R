@@ -21,7 +21,7 @@ featureEnrichment <- function(features='data/genomic_features.txt'){
   
   for (f in levels(data$feature)) {
     feature_fraction<-class_lengths[[f]]/137547960
-    feature_expect<-breakpoint_count*(class_lengths[[f]]/137547960)
+    feature_expect<-breakpoint_count*(feature_fraction)
     
     if(!is.null(class_lengths[[f]])){
       if(classes_count[f] >= feature_expect){

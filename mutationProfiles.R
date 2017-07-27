@@ -474,7 +474,7 @@ featureEnrichment <- function(features='data/genomic_features.txt'){
   
   for (f in levels(data$feature)) {
     feature_fraction<-class_lengths[[f]]/137547960
-    feature_expect<-breakpoint_count*(class_lengths[[f]]/137547960)
+    feature_expect<-breakpoint_count*(feature_fraction)
     
     if(!is.null(class_lengths[[f]])){
       if(classes_count[f] >= feature_expect){
@@ -495,4 +495,67 @@ featureEnrichment <- function(features='data/genomic_features.txt'){
     }
   } 
 }
+
+geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", gene="kirre"){
+  gene_lengths<-read.delim(gene_lengths, header = T)
+  data<-getData()
+  head(arrange(gene_lengths,desc(length)))
+  
+  snv_count<-nrow(data)
+  
+  hit_genes<-table(data$gene)
+  genes<-setNames(as.list(gene_lengths$length), gene_lengths$gene)
+  
+  cat("gene", "observed", "expected", "fc", "\n")
+  
+  
+  df <- data.frame(gene = character(), observed = numeric(), expected = numeric(), fc = numeric())
+  
+  for (g in levels(data$gene)) {
+    genefraction<-genes[[g]]/137547960
+    gene_expect<-snv_count*(genefraction)
+    fc<-hit_genes[g]/gene_expect
+    if(hit_genes[g]>2){
+      cat(g, hit_genes[g], gene_expect, fc, "\n")
+      #enriched <- rbind(df, data.frame(gene = g, observed = hit_genes[g], expected = gene_expect, fc = fc))
+    }
+  }
+  
+  
+  # fun <- function(g) {
+  #   genefraction<-genes[[g]]/137547960
+  #   gene_expect<-snv_count*(genefraction)
+  #   fc<-hit_genes[g]/gene_expect
+  # }
+  # 
+  # enriched<-lapply(levels(data$gene), fun)
+  # enriched<-do.call(rbind, enriched)
+  # enriched
+  # 
+  # 
+  # 
+  # fold_change<-ddply(data, "gene", mutate, fun )
+  # fold_change<-do.call(rbind, fold_change)
+  # 
+  # 
+  # gene_df %>% 
+  #   rowwise() %>% 
+  #   mutate(mean.count= (length + 1))
+  # 
+  # 
+  # 
+  # gene_df<-head(gene_lengths)
+  # ddply(gene_df, "length", transform, length_1 = length + 1)
+  # ddply(gene_df, "length", mutate, length_1 = length + 1)
+  # 
+  # 
+  # custom_function <- function(x) {
+  #   (x + 10)
+  # }
+  # 
+  # ddply(gene_df, "length", mutate, length_1 = custom_function(length))
+  
+
+}
+
 
