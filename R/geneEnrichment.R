@@ -13,7 +13,6 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2){
   gene_lengths<-read.delim(gene_lengths, header = T)
   data<-getData()
   data<-filter(data, gene != "intergenic")
-  head(arrange(gene_lengths,desc(length)))
   
   snv_count<-nrow(data)
   
@@ -26,12 +25,12 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2){
     
     # How many times should we expect to see this gene hit in our data (given number of obs. and fraction)?
     gene_expect<-snv_count*(genefraction)
-    gene_expect<-round(gene_expect,digits=3)
     
     # observed/expected 
-    fc<-hit_genes[g]/gene_expect
+    fc<-hit_genes[[g]]/gene_expect
     fc<-round(fc,digits=1)
-    list(gene = g, observed = hit_genes[g], expected = gene_expect, fc = fc)
+    gene_expect<-round(gene_expect,digits=3)
+    list(gene = g, length = genes[[g]], observed = hit_genes[g], expected = gene_expect, fc = fc)
   }
   
   enriched<-lapply(levels(data$gene), fun)
@@ -40,6 +39,6 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2){
   # Filter for genes with few observations
   genesFC<-filter(genesFC, observed > n)
   # Sort by FC value
-  genesFC<-arrange(genesFC,desc(as.integer(fc)))
+  genesFC<-arrange(genesFC,desc(unlist(fc)))
   return(genesFC)
 }
