@@ -1,5 +1,5 @@
 Package: mutationProfiles
-Title: What the Package Does (one line, title case)
+Title: Collection of functions to explore SNV data (e.g. Mutect2/Freebayes) parsed by get_tris.pl
 Version: 0.0.0.9000
 Authors@R: person("Nick", "Riddiford", email = "nick.riddiford@curie.fr", role = c("aut", "cre"))
 Description: What the package does (one paragraph).
