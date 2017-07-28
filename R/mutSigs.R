@@ -10,7 +10,7 @@
 
 
 mutSigs <- function(samples=NA, pie=NA){
-  suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
+  library(BSgenome.Dmelanogaster.UCSC.dm6)
   suppressMessages(require(deconstructSigs))
   
   if(!exists('scaling_factor')){
