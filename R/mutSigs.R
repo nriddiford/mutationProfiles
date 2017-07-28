@@ -4,6 +4,7 @@
 #' @param samples Calculates and plots mutational signatures on a per-sample basis [Default no]
 #' @param pie Plot a pie chart shwoing contribution of each signature to overall profile [Default no] 
 #' @import deconstructSigs
+#' @import BSgenome
 #' @import BSgenome.Dmelanogaster.UCSC.dm6
 #' @keywords signatures
 #' @export
