@@ -4,10 +4,13 @@
 \alias{featureEnrichment}
 \title{featureEnrichment}
 \usage{
-featureEnrichment(features = "data/genomic_features.txt")
+featureEnrichment(features = "data/genomic_features.txt",
+  genome_length = 137547960)
 }
 \arguments{
 \item{features}{File containing total genomic lengths of features [Default 'data/genomic_features.txt']}
+
+\item{genome_length}{The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]}
 }
 \description{
 Function to calculate enrichment of snv hits in genomic features

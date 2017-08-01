@@ -459,7 +459,7 @@ triFreq <- function(genome=NA, count=NA){
 
 
 
-featureEnrichment <- function(features='data/genomic_features.txt'){
+featureEnrichment <- function(features='data/genomic_features.txt', genome_length=137547960){
   genome_features<-read.delim(features, header = T)
   data<-getData()
   mutCount<-nrow(data)
