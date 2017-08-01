@@ -130,9 +130,9 @@ sub parse {
         # say "Sample depth filt: $sample_depth";
         push @filter_reasons, "AD=" . $sample_depth;
       }
-      # Filter if normal alt AD > 0
+      # Filter if normal alt AD != 0
       my ($n_ref_ad, $n_alt_ad ) = split(/,/, $sample_info{$id}{'NORMAL'}{'AD'});
-      if ($n_alt_ad > 0){
+      if ($n_alt_ad != 0){
         # say "Normal alt allele depth filt: $n_alt_ad";
         push @filter_reasons, "NORM_alt_AD=" . $n_alt_ad;
       }
