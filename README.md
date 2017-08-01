@@ -11,7 +11,7 @@ cd mutationProfiles
 ```
 ## Dependencies
 
-`trinucs.pl` requires [BioPerl](http://bioperl.org/INSTALL.html), which can be installed from cpanm:
+`trinucs.pl` requires [BioPerl](http://bioperl.org/INSTALL.html), which can be installed using cpanm:
 
 ```
 brew install cpanm
@@ -23,9 +23,8 @@ cpanm Bio::Perl
 Move all `.vcf` files into `data/` and run `bash run_trinucs.sh -g <path to genome.fasta>`  
 For Varscan native data run: `bash run_trinucs.sh -v -g <path to genome.fasta>`
 
-This will run `script/trinucs.pl` on each `.vcf` file in `data/`, and write data from all samples to `data/combined_snvs.txt`
+This will run `script/trinucs.pl` on each `.vcf` file in `data/`, and write data from all samples to `data/combined_snvs.txt` in the following format:
 
-e.g.:
 ```
 [sample] [chrom] [pos] [ref] [alt] [tri context] [ref>alt] [decomposed trinuc context] [decomposed ref>alt] [type]
 ```
@@ -41,9 +40,9 @@ A512R17	2L	6478473	G	C	GGT	G>C	ACC	C>G	somatic
 A512R17	2L	9792284	C	T	GCC	C>T	GCC	C>T	somatic
 ```
 
-## Annotate snvs with gene and features
+## Annotate SNVs with gene and feature it's contained within
 
-Run `perl script/snv2gene.pl -i data/combined_snvs.txt` to append the gene and feature hit by each call
+Run `perl script/snv2gene.pl -i data/combined_snvs.txt` to annotate the gene and feature hit by each SNV
 
 e.g.:
 ```
