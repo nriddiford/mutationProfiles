@@ -17,7 +17,7 @@ genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
 while getopts 'vhg:' flag; do
   case "${flag}" in
     v)  varscan=1 ;;
-    g) genome=${OPTARG};;
+    g)  genome=${OPTARG};;
     h)  usage
         exit 0 ;;
   esac
