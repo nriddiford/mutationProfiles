@@ -13,7 +13,6 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2, genome_len
   gene_lengths<-read.delim(gene_lengths, header = T)
   data<-getData()
   data<-filter(data, gene != "intergenic")
-  head(arrange(gene_lengths,desc(length)))
   
   snv_count<-nrow(data)
   
