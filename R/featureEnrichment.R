@@ -8,7 +8,6 @@
 #' @return A data frame with FC scores for all genes seen at least n times in snv data
 #' @export 
 
-
 featureEnrichment <- function(features='data/genomic_features.txt', genome_length=137547960){
   genome_features<-read.delim(features, header = T)
   data<-getData()

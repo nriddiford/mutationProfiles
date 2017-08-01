@@ -458,7 +458,6 @@ triFreq <- function(genome=NA, count=NA){
 }
 
 
-
 #' featureEnrichment
 #'
 #' Function to calculate enrichment of snv hits in genomic features
@@ -468,8 +467,6 @@ triFreq <- function(genome=NA, count=NA){
 #' @import dplyr
 #' @return A data frame with FC scores for all genes seen at least n times in snv data
 #' @export 
-#' @export
-
 
 featureEnrichment <- function(features='data/genomic_features.txt', genome_length=137547960){
   genome_features<-read.delim(features, header = T)
@@ -520,6 +517,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   featuresFC<-arrange(featuresFC,desc(as.integer(fc)))
   return(featuresFC)
 }
+
 
 #' geneEnrichment
 #'
