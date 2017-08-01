@@ -459,6 +459,18 @@ triFreq <- function(genome=NA, count=NA){
 
 
 
+#' featureEnrichment
+#'
+#' Function to calculate enrichment of snv hits in genomic features
+#' @param features File containing total genomic lengths of features [Default 'data/genomic_features.txt']
+#' @param genome_length The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
+#' @keywords enrichment
+#' @import dplyr
+#' @return A data frame with FC scores for all genes seen at least n times in snv data
+#' @export 
+#' @export
+
+
 featureEnrichment <- function(features='data/genomic_features.txt', genome_length=137547960){
   genome_features<-read.delim(features, header = T)
   data<-getData()
@@ -524,7 +536,6 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2, genome_len
   gene_lengths<-read.delim(gene_lengths, header = T)
   data<-getData()
   data<-filter(data, gene != "intergenic")
-  head(arrange(gene_lengths,desc(length)))
   
   snv_count<-nrow(data)
   
@@ -554,5 +565,7 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2, genome_len
   genesFC<-arrange(genesFC,desc(as.integer(fc)))
   return(genesFC)
 }
+
+
 
 

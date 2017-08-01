@@ -12,6 +12,9 @@ featureEnrichment(features = "data/genomic_features.txt",
 
 \item{genome_length}{The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]}
 }
+\value{
+A data frame with FC scores for all genes seen at least n times in snv data
+}
 \description{
 Function to calculate enrichment of snv hits in genomic features
 }

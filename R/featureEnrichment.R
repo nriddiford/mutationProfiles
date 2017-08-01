@@ -4,7 +4,9 @@
 #' @param features File containing total genomic lengths of features [Default 'data/genomic_features.txt']
 #' @param genome_length The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
 #' @keywords enrichment
-#' @export
+#' @import dplyr
+#' @return A data frame with FC scores for all genes seen at least n times in snv data
+#' @export 
 
 
 featureEnrichment <- function(features='data/genomic_features.txt', genome_length=137547960){
