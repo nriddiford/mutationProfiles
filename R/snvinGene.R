@@ -32,6 +32,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt",gene2plot='dnc'){
   
   middle<-((wEnd/1000000+wStart/1000000)/2)
   p <- p + annotate("text", x = middle, y = 0.05, label=gene2plot, size=6)
-  
+  p<-p + ggtitle(paste("Chromosome:", wChrom))
+
   p
 }
