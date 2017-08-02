@@ -14,7 +14,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   mutCount<-nrow(data)
   
   # To condense exon counts into "exon"
-  data$feature<-as.factor(gsub("_.*", "", data$feature))
+  data$feature<-as.factor(gsub("exon_.*", "exon", data$feature))
   
   classCount<-table(data$feature)  
   classLengths<-setNames(as.list(genome_features$length), genome_features$feature)

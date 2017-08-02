@@ -21,10 +21,8 @@ getData <- function(infile = "data/annotated_snvs.txt"){
   levels(data$type) <- tolower(levels(data$type))
   #data <- filter(data, type == 'germline')
   
-  #filter on chroms
-  # data<-filter(data, chrom != "Y" & chrom != "4")
   #filter out samples
-  data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  #data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
   data<-droplevels(data)
   dir.create(file.path("plots"), showWarnings = FALSE)
   return(data)
@@ -157,7 +155,7 @@ featuresHit <- function(){
   data<-getData()
   
   # To condense exon counts into "exon"
-  data$feature<-as.factor(gsub("_.*", "", data$feature))
+  data$feature<-as.factor(gsub("exon_.*", "exon", data$feature))
   
   # Reoders descending
   data$feature<-factor(data$feature, levels = names(sort(table(data$feature), decreasing = TRUE)))
@@ -364,7 +362,6 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt",gene2plot='dnc'){
 }
 
 
-
 #' samplesPlot
 #'
 #' Plot the snv distribution for each sample
@@ -483,7 +480,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   mutCount<-nrow(data)
   
   # To condense exon counts into "exon"
-  data$feature<-as.factor(gsub("_.*", "", data$feature))
+  data$feature<-as.factor(gsub("exon_.*", "exon", data$feature))
   
   classCount<-table(data$feature)
   classLengths<-setNames(as.list(genome_features$length), genome_features$feature)

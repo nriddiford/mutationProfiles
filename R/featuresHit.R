@@ -10,7 +10,7 @@ featuresHit <- function(){
   data<-getData()
   
   # To condense exon counts into "exon"
-  data$feature<-as.factor(gsub("_.*", "", data$feature))
+  data$feature<-as.factor(gsub("exon_.*", "exon", data$feature))
   
   # Reoders descending
   data$feature<-factor(data$feature, levels = names(sort(table(data$feature), decreasing = TRUE)))
