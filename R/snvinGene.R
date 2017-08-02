@@ -17,7 +17,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt",gene2plot='dnc'){
   data<-filter(data, chrom == wChrom, pos >= wStart, pos <= wEnd)
   
   if(nrow(data) == 0){
-    stop(paste("There are no snvs in", gene2see, "- Exiting", "\n"))
+    stop(paste("There are no snvs in", gene2plot, "- Exiting", "\n"))
   }
   
   p<-ggplot(data)

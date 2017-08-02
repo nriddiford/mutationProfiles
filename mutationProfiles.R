@@ -22,7 +22,7 @@ getData <- function(infile = "data/annotated_snvs.txt"){
   #data <- filter(data, type == 'germline')
   
   #filter out samples
-  #data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
   data<-droplevels(data)
   dir.create(file.path("plots"), showWarnings = FALSE)
   return(data)
@@ -198,7 +198,6 @@ geneHit <- function(n=10){
 }
 
 
-
 #' genomeSnvs
 #'
 #' Plot snvs accross genome
@@ -332,17 +331,17 @@ mutSpectrum <- function(){
 #' @keywords gene
 #' @export
 
-snvinGene <- function(gene_lengths="data/gene_lengths.txt",gene2plot='dnc'){
+snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   gene_lengths<-read.delim(gene_lengths, header = T)
   region<-filter(gene_lengths, gene == gene2plot)
   wStart<-(region$start - 10000)
   wEnd<-(region$end + 10000)
   wChrom<-region$chrom
   data<-getData()
-  data<-filter(data, chrom == wChrom, pos >= wStart, pos <= wEnd)
+  data<-filter(data, chrom == wChrom & pos >= wStart & pos <= wEnd)
   
   if(nrow(data) == 0){
-    stop(paste("There are no snvs in", gene2see, "- Exiting", "\n"))
+    stop(paste("There are no snvs in", gene2plot, "- Exiting", "\n"))
   }
   
   p<-ggplot(data)
