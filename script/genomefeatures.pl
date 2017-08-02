@@ -27,11 +27,15 @@ open my $gtf_in, '<', $gtf_file;
 
 open my $gene_lengths, '>', 'data/gene_lengths.txt';
 
+open my $tss_pos, '>', 'data/tss_positions.txt';
+
 print $gene_lengths join("\t", 'gene', 'length', 'chrom', 'start', 'end', 'tss', 'scaling_factor') . "\n";
+
+print $tss_pos join("\t", 'gene', 'chrom', 'tss') . "\n";
 
 my %exons;
 
-my (%features, %transcript_length, %genes, %feature_lengths, %longest_feature_per_gene, %gene_info);
+my (%features, %transcript_length, %genes, %feature_lengths, %longest_feature_per_gene, %gene_info, %tss_seen);
 
 my (%exons_per_gene);
 
@@ -54,13 +58,17 @@ while(<$gtf_in>){
   $feature_length = ($stop - $start);
 
   if ($feature eq 'gene'){
-    $gene_info{$gene}{'gene'} = [$chrom, $start, $stop, $feature_length, '-' ];
+    $gene_info{$gene}{'gene'} = [ $chrom, $start, $stop, $feature_length, '-' ];
+    $gene_length = ($stop - $start);
   }
 
   if ($feature eq 'start_codon'){
     my $tss = (($start+$stop)/2);
     # if there's a tss for this gene, replace '-' at element 4 with 1 element $tss
     splice(@{$gene_info{$gene}{'gene'}}, 4, 1, $tss);
+    if (not $tss_seen{$gene}{$tss}++){
+      print $tss_pos join("\t", $gene, $chrom, $tss) . "\n";
+    }
   }
 
   if ($feature eq 'exon'){
@@ -75,7 +83,7 @@ while(<$gtf_in>){
   }
 }
 
-print Dumper \%gene_info;
+# print Dumper \%tss_locs;
 my $total_features_length;
 
 my (%genome_features, %intron_length);
@@ -96,13 +104,12 @@ for my $gene ( sort keys %longest_feature_per_gene ){
 
       $genome_features{$feature} += $longest_feature_per_gene{$gene}{$feature};
     }
+
     else {
       $gene_length = $longest_feature_per_gene{$gene}{'gene'};
       my $scaling_factor = 1/$gene_length;
 
       my ( $chrom, $start, $stop, $len, $tss ) = @{$gene_info{$gene}{'gene'}};
-
-      # length $tss ? $tss = $tss : $tss = '-';
 
       print $gene_lengths join("\t", $gene, $gene_length, $chrom, $start, $stop, $tss, $scaling_factor) . "\n";
     }

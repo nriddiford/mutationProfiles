@@ -31,7 +31,8 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
     )
   p<-p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(round(wStart/1000000, digits = 2),round(wEnd/1000000, digits = 2),by=0.05), limits=c(wStart/1000000, wEnd/1000000))
   p<-p + annotate("rect", xmin=region$start/1000000, xmax=region$end/1000000, ymin=0, ymax=0.1, alpha=.2, fill="skyblue")
-
+ # p<-p + geom_vline(xintercept = wTss/1000000, colour="red", alpha=.7, linetype="solid", yintercept = c(0,0.1))
+ 
   p<-p + geom_segment(aes(x = wTss/1000000, y = 0, xend= wTss/1000000, yend = 0.1), colour="red")
   middle<-((wEnd/1000000+wStart/1000000)/2)
   p <- p + annotate("text", x = middle, y = 0.05, label=gene2plot, size=6)
