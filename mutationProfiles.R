@@ -354,7 +354,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt",gene2plot='dnc'){
     theme(axis.title.y=element_blank(),
           panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted")
     )
-  p<-p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(wStart/1000000,wEnd/1000000,by=0.05), limits=c(wStart/1000000, wEnd/1000000))
+  p<-p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(round(wStart/1000000, digits = 2),round(wEnd/1000000, digits = 2),by=0.05), limits=c(wStart/1000000, wEnd/1000000))
   p<-p + annotate("rect", xmin=region$start/1000000, xmax=region$end/1000000, ymin=0, ymax=0.1, alpha=.2, fill="skyblue")
   
   middle<-((wEnd/1000000+wStart/1000000)/2)
