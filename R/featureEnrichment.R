@@ -16,10 +16,8 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   # To condense exon counts into "exon"
   data$feature<-as.factor(gsub("_.*", "", data$feature))
   
-  classCount<-table(data$feature)
-  
+  classCount<-table(data$feature)  
   classLengths<-setNames(as.list(genome_features$length), genome_features$feature)
-  cat("feature", "observed", "expected", "test", "FC", "sig", "p", "\n")
   
   fun <- function(f) {
     # Calculate the fraction of geneome occupied by each feature
@@ -46,7 +44,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
       sig_val<-'F'
       if(stat$p.value <= 0.05){ sig_val<-'T'}
       p_val<-format.pval(stat$p.value, digits = 3, eps=0.0001)
-      list(feature = f, observed = classCount[f], expected = featureExpect, fc = fc, test = test, sig_val = sig_val, p_val = p_val)
+      list(feature = f, observed = classCount[f], expected = featureExpect, fc = fc, test = test, sig = sig_val, p_val = p_val)
     }
   }
   

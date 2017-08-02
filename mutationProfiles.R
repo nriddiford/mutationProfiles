@@ -356,6 +356,46 @@ notchSnvs <- function(){
 }
 
 
+#' snvinGene
+#'
+#' Plot all snvs found in a given gene
+#' @import ggplot2
+#' @keywords gene
+#' @export
+
+snvinGene <- function(gene_lengths="data/gene_lengths.txt",gene2plot='dnc'){
+  gene_lengths<-read.delim(gene_lengths, header = T)
+  region<-filter(gene_lengths, gene == gene2plot)
+  wStart<-(region$start - 10000)
+  wEnd<-(region$end + 10000)
+  wChrom<-region$chrom
+  data<-getData()
+  data<-filter(data, chrom == wChrom, pos >= wStart, pos <= wEnd)
+  
+  if(nrow(data) == 0){
+    stop(paste("There are no snvs in", gene2see, "- Exiting", "\n"))
+  }
+  
+  p<-ggplot(data)
+  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 2))
+  p<-p + guides(size = FALSE, sample = FALSE)
+  p<-p + cleanTheme() +
+    theme(axis.title.y=element_blank(),
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted")
+    )
+  p<-p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(wStart/1000000,wEnd/1000000,by=0.05), limits=c(wStart/1000000, wEnd/1000000))
+  
+  p<-p + annotate("rect", xmin=region$start/1000000, xmax=region$end/1000000, ymin=0, ymax=0.1, alpha=.2, fill="skyblue")
+  
+  middle<-((wEnd/1000000+wStart/1000000)/2)
+  
+  p <- p + annotate("text", x = middle, y = 0.05, label=gene2plot, size=6)
+  
+  p
+}
+
+
+
 #' samplesPlot
 #'
 #' Plot the snv distribution for each sample
@@ -477,10 +517,8 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   data$feature<-as.factor(gsub("_.*", "", data$feature))
   
   classCount<-table(data$feature)
-  
   classLengths<-setNames(as.list(genome_features$length), genome_features$feature)
-  cat("feature", "observed", "expected", "test", "FC", "sig", "p", "\n")
-  
+
   fun <- function(f) {
     # Calculate the fraction of geneome occupied by each feature
     featureFraction<-classLengths[[f]]/genome_length
@@ -506,7 +544,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
       sig_val<-'F'
       if(stat$p.value <= 0.05){ sig_val<-'T'}
       p_val<-format.pval(stat$p.value, digits = 3, eps=0.0001)
-      list(feature = f, observed = classCount[f], expected = featureExpect, fc = fc, test = test, sig_val = sig_val, p_val = p_val)
+      list(feature = f, observed = classCount[f], expected = featureExpect, fc = fc, test = test, sig = sig_val, p_val = p_val)
     }
   }
   

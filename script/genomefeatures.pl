@@ -25,13 +25,13 @@ my $gene_to_inspect = shift;
 
 open my $gtf_in, '<', $gtf_file;
 
-open my $gene_lengths, '>', 'gene_lengths.txt';
+open my $gene_lengths, '>', 'data/gene_lengths.txt';
 
-print $gene_lengths "gene\tlength\tscaling_factor\n";
+print $gene_lengths join("\t", 'gene', 'length', 'chrom', 'start', 'end', 'scaling_factor') . "\n";
 
 my %exons;
 
-my (%features, %transcript_length, %genes, %feature_lengths, %longest_feature_per_gene);
+my (%features, %transcript_length, %genes, %feature_lengths, %longest_feature_per_gene, %gene_info);
 
 my (%exons_per_gene);
 
@@ -53,6 +53,10 @@ while(<$gtf_in>){
 
   $feature_length = ($stop - $start);
 
+  if ($feature eq 'gene'){
+    $gene_info{$gene}{'gene'} = [$chrom, $start, $stop, $feature_length ];
+  }
+
   if ($feature eq 'exon'){
     $exons{$transcript}{$feature} += $feature_length;
     $feature_length = $exons{$transcript}{$feature};
@@ -61,6 +65,7 @@ while(<$gtf_in>){
 
   if ( not exists $longest_feature_per_gene{$gene}{$feature} or ($longest_feature_per_gene{$gene}{$feature} < $feature_length) ){
     $longest_feature_per_gene{$gene}{$feature} = $feature_length;
+
   }
 }
 
@@ -88,7 +93,9 @@ for my $gene ( sort keys %longest_feature_per_gene ){
       $gene_length = $longest_feature_per_gene{$gene}{'gene'};
       my $scaling_factor = 1/$gene_length;
 
-      print $gene_lengths join("\t", $gene, $gene_length, $scaling_factor) . "\n";
+      my ( $chrom, $start, $stop ) = @{$gene_info{$gene}{'gene'}};
+
+      print $gene_lengths join("\t", $gene, $gene_length, $chrom, $start, $stop, $scaling_factor) . "\n";
     }
   }
   my $intron_length = ($gene_length - $per_gene_feature_length);
@@ -104,15 +111,15 @@ my $gen_length = sum @lengths;
 say "Genome length = " . $gen_length;
 say "Total features length = $total_features_length";
 print "\n";
-say "Feature lengths:";
 
-open my $genomic_features, ">", 'genomic_features.txt';
+open my $genomic_features, ">", 'data/genomic_features.txt';
 
 my $intergenic = ($gen_length - $total_features_length);
 $genome_features{'intergenic'} = $intergenic;
 
 print $genomic_features "feature\tlength\tpercentage\n";
 
+say "Feature\tlength\tpercentage";
 for (sort { $genome_features{$b} <=> $genome_features{$a} } keys %genome_features){
   print $genomic_features "$_\t$genome_features{$_}\t";
   my $percent = sprintf "%.2f", (($genome_features{$_}/$gen_length)*100) ;
