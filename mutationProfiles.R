@@ -369,21 +369,22 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
 #' tssDist
 #'
 #' Plot distance to TSS distribution
-#' @param tss_pos File containing "gene chrom tss" information [Default 'data/tss_positions.txt']
+#' @param tss_pos File containing "gene chrom tss" information [Default 'data/tss_positions.tx]
 #' @import ggplot2
 #' @keywords tss
 #' @export
 
 tssDist <- function(tss_pos="data/tss_positions.txt"){
   tss_locations<-read.delim(tss_pos, header = T)
-  data<-getData()
+  #data<-getData()
   
   fun <- function(p) {
     
     index<-which.min(abs(tss_locations$tss - p))
     closestTss<-tss_locations$tss[[index]]
+    
     dist<-(closestTss-p)
-    list(closest=closestTss, distance2nearest=dist)
+    list(snp=p, closest=closestTss, distance2nearest=dist)
   }
   
   dist2tss<-lapply(data$pos, fun)
@@ -397,6 +398,8 @@ tssDist <- function(tss_pos="data/tss_positions.txt"){
   p<-ggplot(dist2tss)
   p<-p + geom_density(aes(distance2nearest), fill = "lightblue", alpha = 0.6)
   p<-p + scale_x_continuous("Distance to TSS", limits=c(-10000, 10000))
+  p<-p + geom_vline(xintercept = 0, colour="grey80", alpha=.7, linetype="dotted")
+  
   p
   
   # p<-ggplot(dist2tss)
