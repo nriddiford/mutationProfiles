@@ -376,41 +376,75 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
 
 tssDist <- function(tss_pos="data/tss_positions.txt"){
   tss_locations<-read.delim(tss_pos, header = T)
-  #data<-getData()
+  tss_locations$tss<-as.integer(tss_locations$tss)
+  data<-getData()
   
-  fun <- function(p) {
-    
-    index<-which.min(abs(tss_locations$tss - p))
-    closestTss<-tss_locations$tss[[index]]
-    
-    dist<-(closestTss-p)
-    list(snp=p, closest=closestTss, distance2nearest=dist)
+  
+  # data<-filter(data, sample == "HUM-4")
+  # data<-droplevels(data)
+  
+  fun2 <- function(p) {
+    index<-which.min(abs(tss_df$tss - p))
+    closestTss<-tss_df$tss[index]
+    chrom<-as.character(tss_df$chrom[index])
+    gene<-as.character(tss_df$gene[index])
+    dist<-(p-closestTss)
+    list(p, closestTss, dist, chrom, gene)
   }
   
-  dist2tss<-lapply(data$pos, fun)
+  l <- list()
   
-  dist2tss<-do.call(rbind, dist2tss)
+  for (c in data$chrom){
+    df<-filter(data, chrom == c)
+    tss_df<-filter(tss_locations, chrom == c)
+    dist2tss<-lapply(df$pos, fun2)
+    dist2tss<-do.call(rbind, dist2tss)
+    dist2tss<-as.data.frame(dist2tss)
+    
+    colnames(dist2tss)=c("snp", "closest_tss", "min_dist", "chrom", "closest_gene")
+    dist2tss$min_dist<-as.numeric(dist2tss$min_dist)
+    l[[c]] <- dist2tss
+  }
+  
+  dist2tss<-do.call(rbind,l)
   dist2tss<-as.data.frame(dist2tss)
-  dist2tss<-arrange(dist2tss,(as.numeric(distance2nearest)))
+  dist2tss$chrom<-as.character(dist2tss$chrom)
   
-  dist2tss$distance2nearest<-as.numeric(dist2tss$distance2nearest)
+  dist2tss<-arrange(dist2tss,(abs(min_dist)))
+  
+  
+  #cols<-setCols(data, "chrom")
   
   p<-ggplot(dist2tss)
-  p<-p + geom_density(aes(distance2nearest), fill = "lightblue", alpha = 0.6)
-  p<-p + scale_x_continuous("Distance to TSS", limits=c(-10000, 10000))
-  p<-p + geom_vline(xintercept = 0, colour="grey80", alpha=.7, linetype="dotted")
+  p<-p + geom_density(aes(min_dist) ,alpha = 0.3)
+  p<-p + scale_x_continuous("Distance to TSS", limits=c(-1000, 100))
+  p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+  #p<-p + cols
   
   p
   
-  # p<-ggplot(dist2tss)
-  # p<-p + geom_histogram(aes(distance2nearest), fill = "lightblue", alpha = 0.6, bins=500)
-  # p<-p + scale_x_continuous("Distance to TSS", limits=c(-10000, 10000))
-  # p
   
-  #return(dist2tss)
+  p<-ggplot(dist2tss)
+  p<-p + geom_histogram(aes(min_dist, fill = chrom), alpha = 0.6, bins=500)
+  p<-p + scale_x_continuous("Distance to TSS", limits=c(-10000, 10000))
+  p
+  
 }
 
 
+
+toy <- list()
+toyChroms = c("2L", "2R", "3L", "3R", "X", "Y", "4")
+toyLengths = c(23513712, 25286936, 28110227, 32079331, 23542271, 3667352, 1348131)
+
+for (i in 1:7){
+  chrom<-rep(toyChroms[i], 10)
+  toySNV<-as.integer(runif(10, 0, toyLengths[[i]]))
+  toy<-list(chrom, toySNV)
+}
+
+toyData<-do.call(rbind,toy)
+toyData<-as.data.frame(toyData)
 
 
 #' samplesPlot
