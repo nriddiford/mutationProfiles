@@ -62,18 +62,18 @@ cleanTheme <- function(base_size = 12){
 
 genTris <- function(){
   all.tri = c()
-    for(i in c("A", "C", "G", "T")){
-      for(j in c("C", "T")){
-        for(k in c("A", "C", "G", "T")){
-          if(j != k){
-            for(l in c("A", "C", "G", "T")){
-              tmp = paste(i, "[", j, ">", k, "]", l, sep = "")
-              all.tri = c(all.tri, tmp)
-            }
+  for(i in c("A", "C", "G", "T")){
+    for(j in c("C", "T")){
+      for(k in c("A", "C", "G", "T")){
+        if(j != k){
+          for(l in c("A", "C", "G", "T")){
+            tmp = paste(i, "[", j, ">", k, "]", l, sep = "")
+            all.tri = c(all.tri, tmp)
           }
         }
       }
     }
+  }
   all.tri <- all.tri[order(substr(all.tri, 3, 5))]
   return(all.tri)
 }
@@ -118,7 +118,7 @@ chromDist <- function(object=NA, notch=0){
     data<-exclude_notch()
     ext<-'_excl.N.pdf'
   }
-
+  
   cat("Plotting snvs by", object, "\n")
   
   p<-ggplot(data)
@@ -248,45 +248,45 @@ mutSigs <- function(samples=NA, pie=NA){
     sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = 'All',
                               contexts.needed = TRUE,
                               tri.counts.method = scaling_factor
-                              )
-
+    )
+    
     cat("Writing to file 'plots/all_signatures.pdf'\n")
     pdf('plots/all_signatures.pdf', width = 20, height = 10)
     plotSignatures(sig_plot)
     dev.off()
     plotSignatures(sig_plot)
     
-
+    
     if(!is.na(pie)){
       makePie(sig_plot)
     }
   }
   
   else{
-  	sigs.input <- mut.to.sigs.input(mut.ref = data, sample.id = "sample", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
-  	cat("sample", "snv_count", sep="\t", "\n")
-      for(s in levels(data$sample)) {
-        snv_count<-nrow(filter(data, sample == s))
+    sigs.input <- mut.to.sigs.input(mut.ref = data, sample.id = "sample", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
+    cat("sample", "snv_count", sep="\t", "\n")
+    for(s in levels(data$sample)) {
+      snv_count<-nrow(filter(data, sample == s))
+      
+      if(snv_count > 50){
+        cat(s, snv_count, sep="\t", "\n")
         
-        if(snv_count > 50){
-          cat(s, snv_count, sep="\t", "\n")
+        sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id = s,
+                                  contexts.needed = TRUE,
+                                  tri.counts.method = scaling_factor)
         
-          sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id = s,
-                        contexts.needed = TRUE,
-                        tri.counts.method = scaling_factor)
-          
-          outfile<-(paste('plots/', s, '_signatures.pdf', sep = ''))
-          cat("Writing to file", outfile, "\n")
-          pdf(outfile, width = 20, height = 10)
-          plotSignatures(sig_plot)
-          dev.off()
-          plotSignatures(sig_plot)
-          
-          if(!is.na(pie)){
-            makePie(sig_plot)
-          }
+        outfile<-(paste('plots/', s, '_signatures.pdf', sep = ''))
+        cat("Writing to file", outfile, "\n")
+        pdf(outfile, width = 20, height = 10)
+        plotSignatures(sig_plot)
+        dev.off()
+        plotSignatures(sig_plot)
+        
+        if(!is.na(pie)){
+          makePie(sig_plot)
         }
       }
+    }
   }
 }
 
@@ -301,7 +301,7 @@ mutSigs <- function(samples=NA, pie=NA){
 mutSpectrum <- function(){
   data<-getData()
   cat("Showing global contribution of tri class to mutation load", "\n")
- 
+  
   p<-ggplot(data)
   p<-p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), position="dodge",stat="count")
   p<-p + scale_y_continuous("Relative contribution to mutation load", expand = c(0.0, .0005))
@@ -311,7 +311,7 @@ mutSpectrum <- function(){
           axis.text.x = element_text(angle = 45, hjust=1),
           axis.title = element_text(size=20),
           strip.text.x = element_text(size = 15)
-          )
+    )
   p<-p + labs(fill="Mutation class")
   p<-p + facet_wrap(~grouped_trans, ncol = 3, scale = "free_x" )
   
@@ -380,8 +380,8 @@ tssDist <- function(tss_pos="data/tss_positions.txt"){
   data<-getData()
   
   
-  # data<-filter(data, sample == "HUM-4")
-  # data<-droplevels(data)
+  data<-filter(data, sample == "HUM-4")
+  data<-droplevels(data)
   
   fun2 <- function(p) {
     index<-which.min(abs(tss_df$tss - p))
@@ -394,7 +394,7 @@ tssDist <- function(tss_pos="data/tss_positions.txt"){
   
   l <- list()
   
-  for (c in data$chrom){
+  for (c in levels(data$chrom)){
     df<-filter(data, chrom == c)
     tss_df<-filter(tss_locations, chrom == c)
     dist2tss<-lapply(df$pos, fun2)
@@ -415,19 +415,22 @@ tssDist <- function(tss_pos="data/tss_positions.txt"){
   
   #cols<-setCols(data, "chrom")
   
+  #dummyDF<-head(dist2tss, 100)
+  
   p<-ggplot(dist2tss)
-  p<-p + geom_density(aes(min_dist) ,alpha = 0.3)
-  p<-p + scale_x_continuous("Distance to TSS", limits=c(-1000, 100))
+  p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
+  p<-p + scale_x_continuous("Distance to TSS", limits=c(-100000, 100000))
   p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+  p<-p + facet_wrap(~chrom, scales = "free_y")
   #p<-p + cols
   
   p
   
-  
-  p<-ggplot(dist2tss)
-  p<-p + geom_histogram(aes(min_dist, fill = chrom), alpha = 0.6, bins=500)
-  p<-p + scale_x_continuous("Distance to TSS", limits=c(-10000, 10000))
-  p
+  # p<-ggplot(dist2tss)
+  # p<-p + geom_histogram(aes(min_dist, fill = chrom), alpha = 0.6, bins=500)
+  # p<-p + scale_x_continuous("Distance to TSS", limits=c(-1000, 1000))
+  # p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+  # p
   
 }
 
@@ -457,9 +460,9 @@ toyData<-as.data.frame(toyData)
 
 samplesPlot <- function(count=NA){
   data<-getData()
-
+  
   mut_class<-c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
-
+  
   p<-ggplot(data)
   
   if(is.na(count)){
@@ -477,7 +480,7 @@ samplesPlot <- function(count=NA){
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
           axis.title = element_text(size=20),
           strip.text.x = element_text(size = 10)
-          )
+    )
   p<-p + facet_wrap(~sample, ncol = 4, scale = "free_x" )
   
   samples_mut_spect<-paste("mutation_spectrum_samples", tag, ".pdf", sep = '')
@@ -569,7 +572,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   
   classCount<-table(data$feature)
   classLengths<-setNames(as.list(genome_features$length), genome_features$feature)
-
+  
   fun <- function(f) {
     # Calculate the fraction of geneome occupied by each feature
     featureFraction<-classLengths[[f]]/genome_length
@@ -652,7 +655,4 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2, genome_len
   genesFC<-arrange(genesFC,desc(as.integer(fc)))
   return(genesFC)
 }
-
-
-
 
