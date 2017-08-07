@@ -1,8 +1,14 @@
 #' featureEnrichment
 #'
 #' Function to calculate enrichment of snv hits in genomic features
+#' @description Calculate the enrichment of snv hits in genomic features
+#' A 'features' file must be provided with the follwing format:
+#' feature	length	percentage
+#' This can be generated using the script 'script/genomic_features.pl' and a genome .gtf file
+#' The defualt genome length is set to the mappable regions of the Drosophila melanogastor Dmel6.12 genome (GEM mappability score > .5)
+#' (118274340). The full, assembled genome legnth for chroms 2/3/4/X/Y is 137547960
 #' @param features File containing total genomic lengths of features [Default 'data/genomic_features.txt']
-#' @param genome_length The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
+#' @param genome_length The total legnth of the genome [Default 118274340 (mappable regions on chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
 #' @keywords enrichment
 #' @import dplyr
 #' @return A data frame with FC scores for all genes seen at least n times in snv data
@@ -16,7 +22,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   # To condense exon counts into "exon"
   data$feature<-as.factor(gsub("exon_.*", "exon", data$feature))
   
-  classCount<-table(data$feature)  
+  classCount<-table(data$feature)
   classLengths<-setNames(as.list(genome_features$length), genome_features$feature)
   
   fun <- function(f) {
