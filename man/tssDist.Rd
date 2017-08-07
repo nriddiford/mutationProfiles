@@ -4,10 +4,14 @@
 \alias{tssDist}
 \title{tssDist}
 \usage{
-tssDist(tss_pos = "data/tss_positions.txt")
+tssDist(tss_pos = "data/tss_positions.txt", sim = NA, print = 0)
 }
 \arguments{
-\item{tss_pos}{File containing "gene chrom tss" information [Default 'data/tss_positions.txt']}
+\item{tss_pos}{File containing all TSS positions in genome: "gene chrom tss" [Default 'data/tss_positions.txt']}
+
+\item{sim}{Simulate random SNVs accross genomic intervals? [Default: NO]}
+
+\item{print}{Write the simulated random SNVs to a bed file ('data/simulatedSNVs.bed')? [Default: NO]}
 }
 \description{
 Plot distance to TSS distribution
