@@ -9,7 +9,7 @@
 #' @return A data frame with FC scores for all genes seen at least n times in snv data
 #' @export 
 
-geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2, genome_length=137547960){
+geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=2, genome_length=118274340){
   gene_lengths<-read.delim(gene_lengths, header = T)
   data<-getData()
   data<-filter(data, gene != "intergenic")

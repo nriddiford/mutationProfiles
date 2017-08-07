@@ -23,7 +23,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   }
   
   p<-ggplot(data)
-  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0.00005, height=0))
+  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0.005, height=0))
   p<-p + guides(size = FALSE, sample = FALSE)
   p<-p + cleanTheme() +
     theme(axis.title.y=element_blank(),

@@ -5,7 +5,7 @@
 \title{featureEnrichment}
 \usage{
 featureEnrichment(features = "data/genomic_features.txt",
-  genome_length = 137547960)
+  genome_length = 118274340)
 }
 \arguments{
 \item{features}{File containing total genomic lengths of features [Default 'data/genomic_features.txt']}
