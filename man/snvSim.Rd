@@ -9,9 +9,7 @@ snvSim(intervals = "data/intervals.bed", N = 1000, write = F)
 \arguments{
 \item{intervals}{File containing genomic regions within which to simulate SNVs [Default 'data/intervals.bed]}
 
-\item{N}{Number of random SNVs to generate [Default 1000]}
-
-\item{write}{Write the simulated random SNVs to a bed file ('data/simulatedSNVs.bed')? [Default: NO]}
+\item{N}{Number of random SNVs to generate [Default nrow(data)]}
 }
 \description{
 Generate simulated SNV hits acroos genomic regions (e.g. mappable regions)

@@ -11,12 +11,11 @@
 tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
   tss_locations<-read.delim(tss_pos, header = T)
   tss_locations$tss<-as.integer(tss_locations$tss)
-  if(is.na(sim)){
-    data<-getData()
-  }
-  else{
-    cat("Generating simulated data\n")
-    data<-snvSim(N=1000, write=print)
+  data<-getData()
+  if(!is.na(sim)){
+    simrep<-nrow(data)
+    cat("Generating simulated data for", simrep, "SNVs", "\n")
+    data<-snvSim(N=simrep, write=print)
     colnames(data)<-c("chrom", "pos", "v3", "v4", "v5")
     data<-filter(data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
     data<-droplevels(data)
@@ -53,15 +52,15 @@ tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
   
   # Removes chroms with fewer than 20 observations
   snvCount <- table(dist2tss$chrom)
-  dist2tss <- subset(dist2tss, chrom %in% names(snvCount[snvCount > 20]))
+  dist2tss <- subset(dist2tss, chrom %in% names(snvCount[snvCount > 25]))
 
   p<-ggplot(dist2tss)
   p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
   p<-p + scale_x_continuous("Distance to TSS (Kb)",
                             limits=c(-100000, 100000),
-                            breaks=c(-10000, -1000, 0, 1000, 10000),
+                            breaks=c(-100000, -10000, -1000, 0, 1000, 10000, 100000),
                             expand = c(.0005, .0005),
-                            labels=c("-10", "-1", 0, "1", "10") )
+                            labels=c("-100", "-10", "-1", 0, "1", "10", "100") )
   p<-p + scale_y_continuous("Density", expand = c(0, 0))
   p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
   p<-p + cleanTheme()
@@ -81,9 +80,7 @@ tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
 #'
 #' Generate simulated SNV hits acroos genomic regions (e.g. mappable regions)
 #' @param intervals File containing genomic regions within which to simulate SNVs [Default 'data/intervals.bed]
-#' @param N Number of random SNVs to generate [Default 1000]
-#' @param write Write the simulated random SNVs to a bed file ('data/simulatedSNVs.bed')? [Default: NO]
-
+#' @param N Number of random SNVs to generate [Default nrow(data)]
 #' @import GenomicRanges
 #' @keywords sim
 #' @export

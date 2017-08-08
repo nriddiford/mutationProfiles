@@ -287,7 +287,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   
   wStart<-(region$start - 10000)
   wEnd<-(region$end + 10000)
-  wChrom<-region$chrom
+  wChrom<-as.character(region$chrom)
   wTss<-suppressWarnings(as.numeric(levels(region$tss))[region$tss])
   data<-getData()
   data<-filter(data, chrom == wChrom & pos >= wStart & pos <= wEnd)
@@ -329,12 +329,11 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
 tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
   tss_locations<-read.delim(tss_pos, header = T)
   tss_locations$tss<-as.integer(tss_locations$tss)
-  if(is.na(sim)){
-    data<-getData()
-  }
-  else{
-    cat("Generating simulated data\n")
-    data<-snvSim(N=1000, write=print)
+  data<-getData()
+  if(!is.na(sim)){
+    simrep<-nrow(data)
+    cat("Generating simulated data for", simrep, "SNVs", "\n")
+    data<-snvSim(N=simrep, write=print)
     colnames(data)<-c("chrom", "pos", "v3", "v4", "v5")
     data<-filter(data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
     data<-droplevels(data)
@@ -399,7 +398,7 @@ tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
 #'
 #' Generate simulated SNV hits acroos genomic regions (e.g. mappable regions)
 #' @param intervals File containing genomic regions within which to simulate SNVs [Default 'data/intervals.bed]
-#' @param N Number of random SNVs to generate 
+#' @param N Number of random SNVs to generate [Default nrow(data)]
 #' @import GenomicRanges
 #' @keywords sim
 #' @export
@@ -419,6 +418,105 @@ snvSim <- function(intervals="data/intervals.bed", N=1000, write=F){
   remove(new_b)
   return(data.frame(bedOut))
 }
+
+
+
+svDist <- function(svs="data/all_bps_new.txt",sim=NA, print=0){
+  svBreaks<-read.delim(svs, header = F)
+  colnames(svBreaks) <- c("event", "bp_no", "sample", "chrom", "bp", "gene", "feature", "type", "length")
+  
+  svBreaks$bp<-as.integer(svBreaks$bp)
+  svBreaks<-filter(svBreaks, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  svBreaks <- droplevels(svBreaks)
+  
+  data<-getData()
+  
+  if(!is.na(sim)){
+    simrep<-nrow(data)
+    cat("Generating simulated data for", simrep, "SNVs", "\n")
+    data<-snvSim(N=simrep, write=print)
+    data$end<-NULL
+    data$width<-NULL
+    data$strand<-NULL
+    data$sample <- as.factor(sample(levels(svBreaks$sample), size = nrow(data), replace = TRUE))
+    #data$type <- sample(levels(svBreaks$type), size = nrow(data), replace = TRUE)
+    colnames(data)<-c("chrom", "pos", "sample")
+    data<-filter(data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
+    data<-droplevels(data)
+  }
+  
+  #data<-head(data)
+  #svBreaks<-head(svBreaks)
+  
+  data <- subset(data, sample %in% levels(svBreaks$sample))
+  data <- droplevels(data)
+  
+  data <- subset(data, chrom %in% levels(svBreaks$chrom))
+  data <- droplevels(data)
+  
+  fun3 <- function(p) {
+    index<-which.min(abs(sv_df$bp - p))
+    closestBp<-as.numeric(sv_df$bp[index])
+    chrom<-as.character(sv_df$chrom[index])
+    gene<-as.character(sv_df$gene[index])
+    sample<-as.character(sv_df$sample[index])
+    type<-as.character(sv_df$type[index])
+
+    dist<-(p-closestBp)
+    list(p, closestBp, dist, chrom, gene, type, sample)
+  }
+  
+  l <- list()
+
+  for (c in levels(data$chrom)){
+    for (s in levels(data$sample)){
+      df<-filter(data, chrom == c & sample == s)
+      sv_df<-filter(svBreaks, chrom == c & sample == s)
+      dist2bp<-lapply(df$pos, fun3)
+      dist2bp<-do.call(rbind, dist2bp)
+      dist2bp<-as.data.frame(dist2bp)
+    
+      colnames(dist2bp)=c("snp", "closest_bp", "min_dist", "chrom", "closest_gene", "type", "sample")
+      dist2bp$min_dist<-as.numeric(dist2bp$min_dist)
+      l[[s]] <- dist2bp
+    }
+    l[[c]] <- dist2bp
+  }
+  
+  dist2bp<-do.call(rbind, l)
+  dist2bp<-as.data.frame(dist2bp)
+  dist2bp$chrom<-as.character(dist2bp$chrom)
+  dist2bp$type<-as.character(dist2bp$type)
+  
+  snvCount <- table(dist2bp$chrom)
+  dist2bp <- subset(dist2bp, chrom %in% names(snvCount[snvCount > 25]))
+  
+  dist2bp<-arrange(dist2bp,(abs(min_dist)))
+  
+  dist2bp <- dist2bp %>% na.omit()
+
+  p<-ggplot(dist2bp)
+  p<-p + geom_density(aes(min_dist, fill=type), alpha = 0.3)
+  # p<-p + scale_x_continuous("Distance to SV BP (Kb)",
+  #                           limits=c(-100000, 100000),
+  #                           breaks=c(-100000, -10000, -1000, 0, 1000, 10000, 100000),
+  #                           expand = c(.0005, .0005),
+  #                           labels=c("-100", "-10", "-1", 0, "1", "10", "100") )
+  p<-p + scale_y_continuous("Density", expand = c(0, 0))
+  p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted") 
+  p<-p + cleanTheme()
+  #p<-p + facet_wrap(~chrom, ncol = 2, scales = "free_y")
+  p
+  
+  # p<-ggplot(dist2bp)
+  # p<-p + geom_histogram(aes(as.numeric(min_dist, fill = type)), alpha = 0.6, binwidth = 1000)
+  # p<-p + scale_x_continuous("Distance to TSS", limits=c(-1000000, 1000000))
+  # p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+  # p
+  
+}
+
+
 
 
 #' samplesPlot
