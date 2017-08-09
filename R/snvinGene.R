@@ -17,7 +17,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   
   wStart<-(region$start - 10000)
   wEnd<-(region$end + 10000)
-  wChrom<-region$chrom
+  wChrom<-as.character(region$chrom)
   wTss<-suppressWarnings(as.numeric(levels(region$tss))[region$tss])
   data<-getData()
   data<-filter(data, chrom == wChrom & pos >= wStart & pos <= wEnd)
@@ -27,7 +27,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   }
   
   p<-ggplot(data)
-  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0.005, height=0))
+  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0, height=0.05))
   p<-p + guides(size = FALSE, sample = FALSE)
   p<-p + cleanTheme() +
     theme(axis.title.y=element_blank(),

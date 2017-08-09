@@ -151,16 +151,50 @@ chromDist <- function(object=NA, notch=0){
 #' @keywords genome
 #' @export
 
-genomeSnvs <- function(){
+rainfall <- function(){
   data<-getData()
-  data<-filter(data, chrom != "4")
-  p<-ggplot(data)
-  p<-p + geom_point(aes(pos/1000000, sample, colour = trans))
+
+  
+# df<-structure(list(chrom = structure(c(1L, 1L, 1L, 1L, 1L, 1L, 2L, 
+#                                        2L, 3L, 3L, 4L, 4L, 4L, 4L), .Label = c("1", "2", "3", "4"), class = "factor"), 
+#                      pos = c(10L, 200L, 134L, 400L, 600L, 1000L, 20L, 33L, 40L, 
+#                              45L, 50L, 55L, 100L, 123L)), .Names = c("chrom", "pos"), row.names = c(NA, -14L), class = "data.frame")
+#   
+#   datalist = list()
+#   
+#   for (c in levels(df$chrom)){
+#     df_chrom<-filter(df, chrom == c)
+#     df_chrom<-arrange(df_chrom, df_chrom$pos)
+#     for (i in 1:nrow(df_chrom)){
+#       dist<-(df_chrom$pos[i+1] - df_chrom$pos[i])
+#       logdist<-log10(dist)
+#       cat(c, i, df_chrom$pos[i], dist, logdist, "\n")
+#       datalist[i] <- c(c, i, df_chrom$pos[i], dist, logdist, "\n")
+#     }
+#   }
+#   
+  
+  distances<-do.call(rbind, lapply(split(data[order(data$chrom, data$pos),], data$chrom[order(data$chrom, data$pos)]),
+                        function(a) data.frame(a, dist = c(log10(diff(a$pos)), NA))))
+  
+  
+  distances$dist[is.infinite(distances$dist)] <- 0
+  distances<-filter(distances, chrom != 4)
+
+                   # library(data.table)
+  # 
+  # distances<-setDT(df)[order(pos), {v1 <- diff(pos)
+  # .(index = seq_len(.N), pos = pos, 
+  #   dist = c(v1, NA), logdiff = c(log10(v1), NA))}
+  # , by = chrom]
+  
+  p<-ggplot(distances)
+  p<-p + geom_point(aes(pos/1000000, dist, colour = sample))
   # p<-p + guides(color = FALSE)
   p<-p + theme(axis.text.x = element_text(angle=45, hjust = 1))
   
   p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
-  p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
+  #p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
   
   p
 }
@@ -297,7 +331,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   }
   
   p<-ggplot(data)
-  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0.005, height=0))
+  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0, height=0.05))
   p<-p + guides(size = FALSE, sample = FALSE)
   p<-p + cleanTheme() +
     theme(axis.title.y=element_blank(),
