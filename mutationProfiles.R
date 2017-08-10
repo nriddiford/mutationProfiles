@@ -144,52 +144,25 @@ chromDist <- function(object=NA, notch=0){
 }
 
 
-#' genomeSnvs
+#' rainfall
 #'
-#' Plot snvs accross genome
+#' Plot log10 distances between snvs as rainfall plot
 #' @import ggplot2
-#' @keywords genome
+#' @keywords rainfall
 #' @export
 
 rainfall <- function(){
   data<-getData()
 
-  
-# df<-structure(list(chrom = structure(c(1L, 1L, 1L, 1L, 1L, 1L, 2L, 
-#                                        2L, 3L, 3L, 4L, 4L, 4L, 4L), .Label = c("1", "2", "3", "4"), class = "factor"), 
-#                      pos = c(10L, 200L, 134L, 400L, 600L, 1000L, 20L, 33L, 40L, 
-#                              45L, 50L, 55L, 100L, 123L)), .Names = c("chrom", "pos"), row.names = c(NA, -14L), class = "data.frame")
-#   
-#   datalist = list()
-#   
-#   for (c in levels(df$chrom)){
-#     df_chrom<-filter(df, chrom == c)
-#     df_chrom<-arrange(df_chrom, df_chrom$pos)
-#     for (i in 1:nrow(df_chrom)){
-#       dist<-(df_chrom$pos[i+1] - df_chrom$pos[i])
-#       logdist<-log10(dist)
-#       cat(c, i, df_chrom$pos[i], dist, logdist, "\n")
-#       datalist[i] <- c(c, i, df_chrom$pos[i], dist, logdist, "\n")
-#     }
-#   }
-#   
-  
   distances<-do.call(rbind, lapply(split(data[order(data$chrom, data$pos),], data$chrom[order(data$chrom, data$pos)]),
-                        function(a) data.frame(a, dist = c(log10(diff(a$pos)), NA))))
+                        function(a) data.frame(a, dist=c(diff(a$pos), NA), logdist = c(log10(diff(a$pos)), NA))))
   
   
-  distances$dist[is.infinite(distances$dist)] <- 0
+  distances$logdist[is.infinite(distances$logdist)] <- 0
   distances<-filter(distances, chrom != 4)
 
-                   # library(data.table)
-  # 
-  # distances<-setDT(df)[order(pos), {v1 <- diff(pos)
-  # .(index = seq_len(.N), pos = pos, 
-  #   dist = c(v1, NA), logdiff = c(log10(v1), NA))}
-  # , by = chrom]
-  
   p<-ggplot(distances)
-  p<-p + geom_point(aes(pos/1000000, dist, colour = sample))
+  p<-p + geom_point(aes(pos/1000000, logdist, colour = grouped_trans))
   # p<-p + guides(color = FALSE)
   p<-p + theme(axis.text.x = element_text(angle=45, hjust = 1))
   
