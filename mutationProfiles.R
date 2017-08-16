@@ -17,12 +17,15 @@ library(deconstructSigs)
 getData <- function(infile = "data/annotated_snvs.txt"){
   data<-read.delim(infile, header = F)
   
-  colnames(data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "type", "feature", "gene")
-  levels(data$type) <- tolower(levels(data$type))
-  #data <- filter(data, type == 'germline')
+  colnames(data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene")
+  data$a_freq<-as.numeric(levels(data$a_freq))[data$a_freq]
   
+  #data<-filter(data, is.na(a_freq))
+  data<-filter(data, a_freq >= 0.20)
+
   #filter out samples
   data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  
   data<-droplevels(data)
   dir.create(file.path("plots"), showWarnings = FALSE)
   return(data)

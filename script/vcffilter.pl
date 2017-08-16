@@ -17,7 +17,7 @@ my ($name, $extention) = split(/\.([^.]+)$/, basename($vcf_file), 2);
 
 my ($id) = (split(/_/, $name))[0];
 
-open my $out, '>', $id . "_filtered.snv.vcf";
+open my $out, '>', $id . "_mutect_filtered.snv.vcf";
 
 my %filtered_snvs = %{ $filtered_data };
 my $sv_count = 0;

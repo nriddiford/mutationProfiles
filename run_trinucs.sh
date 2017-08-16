@@ -24,10 +24,10 @@ while getopts 'vhg:' flag; do
 done
 
 
-if [[ -f "data/GW.snv.dist.txt" ]]
+if [[ -f "data/combined_snvs.txt" ]]
 then
   echo "Cleaning up old files"
-  rm data/GW.snv.dist.txt
+  rm data/combined_snvs.txt
   #rm data/GW.trinucs.txt
   #rm data/chroms.trinucs.txt
 fi
@@ -42,10 +42,10 @@ fi
 
 if [[ $varscan -eq 0 ]]
 then
-  for vcf in data/*.vcf
+  for vcf in data/*combined_snvs.vcf
   do
     perl script/trinucs.pl -g $genome -v $vcf
   done
 fi
 
-mv *.txt data/
+mv combined_snvs.txt data

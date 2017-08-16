@@ -106,7 +106,7 @@ sub parse_vcf {
 
   if ( $extention eq 'gz'){
     say "Reading in compressed VCF file: $vcf_file";
-    open $VCF_in, "zcat $vcf_file |" or die $!;
+    open $VCF_in, "gunzip -c $vcf_file |" or die $!;
   }
   else{
     say "Reading in VCF file: $vcf_file";
