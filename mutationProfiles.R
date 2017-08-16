@@ -21,7 +21,7 @@ getData <- function(infile = "data/annotated_snvs.txt"){
   data$a_freq<-as.numeric(levels(data$a_freq))[data$a_freq]
   
   #data<-filter(data, is.na(a_freq))
-  data<-filter(data, a_freq >= 0.20)
+  #data<-filter(data, a_freq >= 0.20)
 
   #filter out samples
   data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
@@ -392,10 +392,10 @@ tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
   p<-ggplot(dist2tss)
   p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
   p<-p + scale_x_continuous("Distance to TSS (Kb)",
-                            limits=c(-100000, 100000),
-                            breaks=c(-100000, -10000, -1000, 0, 1000, 10000, 100000),
+                            limits=c(-10000, 10000),
+                            breaks=c( -10000, -1000, 0, 1000, 10000 ),
                             expand = c(.0005, .0005),
-                            labels=c("-100", "-10", "-1", 0, "1", "10", "100") )
+                            labels=c("-10", "-1", 0, "1", "10") )
   p<-p + scale_y_continuous("Density", expand = c(0, 0))
   p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
   p<-p + cleanTheme()
