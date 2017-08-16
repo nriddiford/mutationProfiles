@@ -9,9 +9,13 @@ rainfall <- function(){
   data<-getData()
 
   distances<-do.call(rbind, lapply(split(data[order(data$chrom, data$pos),], data$chrom[order(data$chrom, data$pos)]),
-                        function(a) data.frame(a, dist=c(diff(a$pos), NA), logdist = c(log10(diff(a$pos)), NA))))
-  
-  
+                        function(a) 
+                          data.frame(a,
+                                     dist=c(diff(a$pos), NA),
+                                     logdist = c(log10(diff(a$pos)), NA))
+                        )
+                     )
+
   distances$logdist[is.infinite(distances$logdist)] <- 0
   distances<-filter(distances, chrom != 4)
 

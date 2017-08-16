@@ -25,6 +25,8 @@ getData <- function(infile = "data/annotated_snvs.txt"){
 
   #filter out samples
   data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  #data<-filter(data, sample != "A373R11" & sample != 'A373R13')
+  
   
   data<-droplevels(data)
   dir.create(file.path("plots"), showWarnings = FALSE)
@@ -158,7 +160,12 @@ rainfall <- function(){
   data<-getData()
 
   distances<-do.call(rbind, lapply(split(data[order(data$chrom, data$pos),], data$chrom[order(data$chrom, data$pos)]),
-                        function(a) data.frame(a, dist=c(diff(a$pos), NA), logdist = c(log10(diff(a$pos)), NA))))
+                        function(a) 
+                          data.frame(a,
+                                     dist=c(diff(a$pos), NA),
+                                     logdist = c(log10(diff(a$pos)), NA))
+                        )
+                     )
   
   
   distances$logdist[is.infinite(distances$logdist)] <- 0
@@ -454,9 +461,6 @@ svDist <- function(svs="data/all_bps_new.txt",sim=NA, print=0){
     data<-filter(data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
     data<-droplevels(data)
   }
-  
-  #data<-head(data)
-  #svBreaks<-head(svBreaks)
   
   data <- subset(data, sample %in% levels(svBreaks$sample))
   data <- droplevels(data)
