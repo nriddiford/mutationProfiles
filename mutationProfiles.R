@@ -254,6 +254,63 @@ mutSigs <- function(samples=NA, pie=NA){
 }
 
 
+#' sigTypes
+#'
+#' Calculate and plot the mutational signatures accross samples using the package `deconstructSigs`
+#' @param samples Calculates and plots mutational signatures on a per-sample basis [Default no]
+#' @param pie Plot a pie chart shwoing contribution of each signature to overall profile [Default no] 
+#' @import deconstructSigs
+#' @import BSgenome.Dmelanogaster.UCSC.dm6
+#' @keywords signatures
+#' @export
+
+sigTypes <- function(){
+  suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
+  suppressMessages(require(deconstructSigs))
+  
+  if(!exists('scaling_factor')){
+    cat("calculationg trinucleotide frequencies in genome\n")
+    scaling_factor <-triFreq()
+  }
+  
+  data<-getData()
+  genome <- BSgenome.Dmelanogaster.UCSC.dm6
+  
+  sigs.input <- mut.to.sigs.input(mut.ref = data, sample.id = "sample", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
+
+  l = list()
+  for(s in levels(data$sample)) {
+    snv_count<-nrow(filter(data, sample == s))
+    
+    if(snv_count > 50){
+
+      sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id = s,
+                                contexts.needed = TRUE,
+                                tri.counts.method = scaling_factor)
+      l[[s]] <- sig_plot
+    }
+  }
+  
+  mutSigs<-do.call(rbind, l)
+  mutSigs<-as.data.frame(mutSigs)
+
+  mutWeights<-mutSigs$weights
+  
+  mutData<-melt(rbindlist(mutWeights, idcol = 'sample'),
+                id = 'sample', variable.name = 'signature', value.name = 'score')
+  
+  mutData<-filter(mutData, score > 0.10)
+  mutData<-droplevels(mutData)
+  
+  p <- ggplot(mutData)
+  p <- p + geom_bar(aes(reorder(sample, -score), score, fill=signature),colour="black", stat = "identity")
+  p <- p + scale_x_discrete("Sample")
+  p <- p + theme(axis.text.x = element_text(angle = 45, hjust=1))
+
+  p
+}
+
+
 #' mutSpectrum
 #'
 #' Plots the mutations spectrum for all samples combined
@@ -388,11 +445,12 @@ tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
   # Removes chroms with fewer than 20 observations
   snvCount <- table(dist2tss$chrom)
   dist2tss <- subset(dist2tss, chrom %in% names(snvCount[snvCount > 25]))
-
+  dist2tss <- filter(dist2tss, chrom != 'Y')
+ 
   p<-ggplot(dist2tss)
   p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
   p<-p + scale_x_continuous("Distance to TSS (Kb)",
-                            limits=c(-10000, 10000),
+                            limits=c(-100000, 100000),
                             breaks=c( -10000, -1000, 0, 1000, 10000 ),
                             expand = c(.0005, .0005),
                             labels=c("-10", "-1", 0, "1", "10") )
@@ -468,6 +526,7 @@ svDist <- function(svs="data/all_bps_new.txt",sim=NA, print=0){
   data <- subset(data, chrom %in% levels(svBreaks$chrom))
   data <- droplevels(data)
   
+  
   fun3 <- function(p) {
     index<-which.min(abs(sv_df$bp - p))
     closestBp<-as.numeric(sv_df$bp[index])
@@ -486,6 +545,7 @@ svDist <- function(svs="data/all_bps_new.txt",sim=NA, print=0){
     for (s in levels(data$sample)){
       df<-filter(data, chrom == c & sample == s)
       sv_df<-filter(svBreaks, chrom == c & sample == s)
+
       dist2bp<-lapply(df$pos, fun3)
       dist2bp<-do.call(rbind, dist2bp)
       dist2bp<-as.data.frame(dist2bp)
@@ -512,14 +572,14 @@ svDist <- function(svs="data/all_bps_new.txt",sim=NA, print=0){
   p<-ggplot(dist2bp)
   p<-p + geom_density(aes(min_dist, fill=type), alpha = 0.3)
   # p<-p + scale_x_continuous("Distance to SV BP (Kb)",
-  #                           limits=c(-100000, 100000),
-  #                           breaks=c(-100000, -10000, -1000, 0, 1000, 10000, 100000),
+  #                           limits=c(-10000000, 10000000),
+  #                           breaks=c(-10000000, -100000, -10000, -1000, 0, 1000, 10000, 100000, 10000000),
   #                           expand = c(.0005, .0005),
-  #                           labels=c("-100", "-10", "-1", 0, "1", "10", "100") )
+  #                           labels=c("-10000", "-100", "-10", "-1", 0, "1", "10", "100", "10000") )
   p<-p + scale_y_continuous("Density", expand = c(0, 0))
   p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted") 
   p<-p + cleanTheme()
-  #p<-p + facet_wrap(~chrom, ncol = 2, scales = "free_y")
+  p<-p + facet_wrap(~chrom, ncol = 2, scales = "free_y")
   p
   
   # p<-ggplot(dist2bp)
@@ -805,6 +865,86 @@ triFreq <- function(genome=NA, count=NA){
   }
   
 }
+
+
+# svBreaks<-read.delim("../DUMMYSV.txt", header = F)
+# colnames(svBreaks) <- c("event", "bp_no", "sample", "chrom", "bp", "gene", "feature", "type", "length")
+# svBreaks<-head(svBreaks,10)
+# svBreaks<-select(svBreaks, sample, chrom, bp, gene, type)
+# svBreaks <- droplevels(svBreaks)
+
+# 
+# data<-read.delim("DUMMY_DATA.txt", header=F)
+# colnames(data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene")
+# data<-head(data,10)
+# data<-select(data, sample, chrom, pos)
+# 
+# data <- subset(data, sample %in% levels(svBreaks$sample))
+# data <- droplevels(data)
+# 
+# data <- subset(data, chrom %in% levels(svBreaks$chrom))
+# data <- droplevels(data)
+
+# svBreaks<-structure(list(sample = structure(c(1L, 1L, 1L, 2L, 2L, 2L, 1L, 
+#                                               1L, 2L, 1L), .Label = c("S1", "S2"), class = "factor"), chrom = structure(c(1L, 
+#                                                                                                                           1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L), .Label = c("2L", "2R"), class = "factor"), 
+#                          bp = c(2425901L, 2426025L, 6694426L, 6694566L, 8387755L, 
+#                                 8387927L, 8963713L, 963799L, 980364L, 980521L), gene = structure(c(3L, 
+#                                                                                                    3L, 5L, 5L, 4L, 4L, 2L, 2L, 1L, 1L), .Label = c("CG8213", 
+#                                                                                                                                                    "CG8216", "intergenic", "pdm3", "Tsp"), class = "factor"), 
+#                          type = structure(c(2L, 1L, 2L, 1L, 3L, 3L, 3L, 4L, 4L, 3L
+#                          ), .Label = c("DEL", "DUP", "INV", "TANDUP"), class = "factor")), row.names = c(NA, 
+#                                                                                                          10L), .Names = c("sample", "chrom", "bp", "gene", "type"), class = "data.frame")
+# 
+# 
+# data<-structure(list(sample = structure(c(1L, 2L, 2L, 1L, 1L, 1L, 1L, 
+#                                           2L, 2L, 2L), .Label = c("S1", "S2"), class = "factor"), chrom = structure(c(1L, 
+#                                                                                                                       1L, 1L, 2L, 2L, 2L, 1L, 1L, 1L, 2L), .Label = c("2L", "2R"), class = "factor"), 
+#                      pos = c(318351L, 605574L, 1014043L, 2031592L, 2886957L, 2910379L, 
+#                              2218351L, 105574L, 1344043L, 216957L)), .Names = c("sample", 
+#                                                                                 "chrom", "pos"), row.names = c(NA, 10L), class = "data.frame")
+# 
+# 
+# 
+# fun3 <- function(p) {
+#   index<-which.min(abs(sv_df$bp - p))
+#   closestBp<-as.numeric(sv_df$bp[index])
+#   chrom<-as.character(sv_df$chrom[index])
+#   gene<-as.character(sv_df$gene[index])
+#   sample<-as.character(sv_df$sample[index])
+#   type<-as.character(sv_df$type[index])
+#   
+#   dist<-(p-closestBp)
+#   list(p, closestBp, dist, chrom, gene, type, sample)
+# }
+# 
+# l <- list()
+# 
+# for (c in levels(data$chrom)){
+#   for (s in levels(data$sample)){
+# 
+#     df<-filter(data, chrom == c & sample == s)
+#     sv_df<-filter(svBreaks, chrom == c & sample == s)
+#     
+#     dist2bp<-lapply(df$pos, fun3)
+#     dist2bp<-do.call(rbind, dist2bp)
+#     dist2bp<-as.data.frame(dist2bp)
+#     
+#     colnames(dist2bp)=c("snp", "closest_bp", "min_dist", "chrom", "closest_gene", "type", "sample")
+#     cat("Chrom = ", c, "Sample = ", s, "\n")
+#     dist2bp$min_dist<-as.numeric(dist2bp$min_dist)
+#     l[[s]] <- dist2bp
+#   }
+#   #l[[c]] <- dist2bp
+# }
+# 
+# dist2bp<-do.call(rbind, l)
+# dist2bp<-as.data.frame(dist2bp)
+# dist2bp$chrom<-as.character(dist2bp$chrom)
+# dist2bp$type<-as.character(dist2bp$type)
+# 
+# print(dist2bp)
+# 
 
 
 ###########
