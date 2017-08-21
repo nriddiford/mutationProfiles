@@ -302,7 +302,7 @@ sigTypes <- function(){
   mutData<-filter(mutData, score > 0.10)
   mutData<-droplevels(mutData)
   
-  p <- ggplot(mutData)
+  p <- ggplot(mutData[order(mutData$signature),])
   p <- p + geom_bar(aes(reorder(sample, -score), score, fill=signature),colour="black", stat = "identity")
   p <- p + scale_x_discrete("Sample")
   p <- p + theme(axis.text.x = element_text(angle = 45, hjust=1))
