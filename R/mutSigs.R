@@ -50,7 +50,7 @@ mutSigs <- function(samples=NA, pie=NA){
         if(snv_count > 50){
           cat(s, snv_count, sep="\t", "\n")
         
-          sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id = s,
+          sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = s,
                         contexts.needed = TRUE,
                         tri.counts.method = scaling_factor)
           
