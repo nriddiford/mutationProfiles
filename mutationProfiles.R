@@ -3,6 +3,8 @@ library(dplyr)
 library(RColorBrewer)
 library(BSgenome.Dmelanogaster.UCSC.dm6)
 library(deconstructSigs)
+library(reshape)
+library(data.table)
 
 
 #' getData
@@ -234,7 +236,7 @@ mutSigs <- function(samples=NA, pie=NA){
       if(snv_count > 50){
         cat(s, snv_count, sep="\t", "\n")
         
-        sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id = s,
+        sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = s,
                                   contexts.needed = TRUE,
                                   tri.counts.method = scaling_factor)
         
@@ -260,6 +262,8 @@ mutSigs <- function(samples=NA, pie=NA){
 #' @param samples Calculates and plots mutational signatures on a per-sample basis [Default no]
 #' @param pie Plot a pie chart shwoing contribution of each signature to overall profile [Default no] 
 #' @import deconstructSigs
+#' @import data.table
+#' @import reshape
 #' @import BSgenome.Dmelanogaster.UCSC.dm6
 #' @keywords signatures
 #' @export
@@ -269,7 +273,7 @@ sigTypes <- function(){
   suppressMessages(require(deconstructSigs))
   
   if(!exists('scaling_factor')){
-    cat("calculationg trinucleotide frequencies in genome\n")
+    cat("Calculating trinucleotide frequencies in genome\n")
     scaling_factor <-triFreq()
   }
   
@@ -284,7 +288,7 @@ sigTypes <- function(){
     
     if(snv_count > 50){
 
-      sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.nature2013, sample.id = s,
+      sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = s,
                                 contexts.needed = TRUE,
                                 tri.counts.method = scaling_factor)
       l[[s]] <- sig_plot
@@ -299,14 +303,15 @@ sigTypes <- function(){
   mutData<-melt(rbindlist(mutWeights, idcol = 'sample'),
                 id = 'sample', variable.name = 'signature', value.name = 'score')
   
-  mutData<-filter(mutData, score > 0.10)
+  mutData<-filter(mutData, score > 0.1)
   mutData<-droplevels(mutData)
   
   p <- ggplot(mutData[order(mutData$signature),])
   p <- p + geom_bar(aes(reorder(sample, -score), score, fill=signature),colour="black", stat = "identity")
   p <- p + scale_x_discrete("Sample")
-  p <- p + theme(axis.text.x = element_text(angle = 45, hjust=1))
-
+  p <- p + scale_y_continuous("Signature contribution", expand = c(0.01, 0.01), breaks=seq(0, 1, by=0.1))
+  p <- p + cleanTheme() +
+    theme(axis.text.x = element_text(angle = 45, hjust=1))
   p
 }
 
@@ -953,11 +958,11 @@ triFreq <- function(genome=NA, count=NA){
 
 # Gene lengths on accross chroms
 
-gene_lengths="data/gene_lengths.txt"
-gene_lengths<-read.delim(gene_lengths, header = T)
+#gene_lengths="data/gene_lengths.txt"
+#gene_lengths<-read.delim(gene_lengths, header = T)
 
-p<-ggplot(gene_lengths)
-p<-p + geom_point(aes( x=(start+(length/2)), y=log10(length), colour = chrom))
-p<-p + facet_wrap(~chrom, scale = "free_x")
-p
+#p<-ggplot(gene_lengths)
+#p<-p + geom_point(aes( x=(start+(length/2)), y=log10(length), colour = chrom))
+#p<-p + facet_wrap(~chrom, scale = "free_x")
+#p
 
