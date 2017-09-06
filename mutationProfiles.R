@@ -175,8 +175,10 @@ rainfall <- function(){
 
   p<-ggplot(distances)
   p<-p + geom_point(aes(pos/1000000, logdist, colour = grouped_trans))
-  # p<-p + guides(color = FALSE)
-  p<-p + theme(axis.text.x = element_text(angle=45, hjust = 1))
+  p <- p + cleanTheme() +
+    theme(axis.text.x = element_text(angle=45, hjust = 1),
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted")
+          )
   
   p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
   p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
@@ -700,6 +702,36 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   # Sort by FC value
   featuresFC<-arrange(featuresFC,desc(as.integer(fc)))
   return(featuresFC)
+}
+
+
+EnrichmentPlot <- function() {
+  feature_enrichment<-featureEnrichment()
+
+  feature_enrichment$Log2FC <- log2(as.numeric(feature_enrichment$fc))
+  
+  feature_enrichment$feature <- as.character(feature_enrichment$feature)
+  feature_enrichment$fc <- as.numeric(feature_enrichment$fc)
+  
+  feature_enrichment <- transform(feature_enrichment, feature = reorder(feature, -fc))
+  
+  feature_enrichment <- filter(feature_enrichment, observed >= 5)
+  
+  p<-ggplot(feature_enrichment)
+  p<-p + geom_bar(aes(feature, Log2FC, fill = as.character(test)), stat="identity")
+  p<-p + guides(fill=FALSE)
+  p<-p + ylim(-2,2)
+  p<-p + cleanTheme() +
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text = element_text(size=20)
+    )
+  
+  feat_plot <- paste("feat_plot.pdf")
+  cat("Writing file", feat_plot, "\n")
+  ggsave(paste("plots/", feat_plot, sep=""), width = 5, height = 10)
+  p
+  
 }
 
 
