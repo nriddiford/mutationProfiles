@@ -313,17 +313,37 @@ sigTypes <- function(){
   mutData<-filter(mutData, score > 0.1)
   mutData<-droplevels(mutData)
   
-  cols <- setCols(mutData, 'signature')
-  
   p <- ggplot(mutData[order(mutData$signature),])
   p <- p + geom_bar(aes(reorder(sample, -score), score, fill=signature),colour="black", stat = "identity")
   p <- p + scale_x_discrete("Sample")
   p <- p + scale_y_continuous("Signature contribution", expand = c(0.01, 0.01), breaks=seq(0, 1, by=0.1))
   p <- p + cleanTheme() +
     theme(axis.text.x = element_text(angle = 45, hjust=1))
-  p <- p + cols
   p
 }
+
+
+####
+# sigTypesPie
+####
+
+sigPie <- function() {
+  df <- data.frame(
+    group = c("Sig3", "Sig5", "Sig8", "Unknown"),
+    value = c(21, 14, 25, 40),
+    cols = c('#DB8E00', '#64B200', '#00BD5C', '#00BADE'))
+
+  bp <- ggplot(df, aes(x="", y=value, fill = cols)) +
+    geom_bar(width = 1, stat = "identity", colour = "white") +
+    scale_fill_manual(values = levels(df$cols), labels = levels(df$group))
+
+  bp
+
+
+  pie <- bp + coord_polar("y", start=0)
+  pie + cleanTheme()
+}
+
 
 
 #' mutSpectrum
@@ -713,7 +733,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
 }
 
 
-EnrichmentPlot <- function() {
+enrichmentPlot <- function() {
   feature_enrichment<-featureEnrichment()
 
   feature_enrichment$Log2FC <- log2(as.numeric(feature_enrichment$fc))
@@ -738,6 +758,42 @@ EnrichmentPlot <- function() {
   feat_plot <- paste("feat_plot.pdf")
   cat("Writing file", feat_plot, "\n")
   ggsave(paste("plots/", feat_plot, sep=""), width = 5, height = 10)
+  p
+  
+}
+
+
+geneEnrichmentPlot <- function() {
+  gene_enrichment<-geneEnrichment(n=1)
+  
+  gene_enrichment$Log2FC <- log2(as.numeric(gene_enrichment$fc))
+  
+  gene_enrichment$gene <- as.character(gene_enrichment$gene)
+  gene_enrichment$fc <- as.numeric(gene_enrichment$fc)
+  
+  gene_enrichment <- transform(gene_enrichment, gene = reorder(gene, -fc))
+  
+  gene_enrichment$test <- ifelse(gene_enrichment$Log2FC>=0, "enriched", "depleted")
+  
+  gene_enrichment <- filter(gene_enrichment, observed >= 5)
+  gene_enrichment<-droplevels(gene_enrichment)
+  
+  highlightedGene <- filter(gene_enrichment, gene == "kuz")
+  highlightedGene <- droplevels(highlightedGene)
+  
+  p<-ggplot(gene_enrichment)
+  p<-p + geom_bar(aes(gene, Log2FC, fill = as.character(test)), stat="identity")
+  p<-p + geom_bar(data=highlightedGene, aes(gene, Log2FC, fill="red"), colour="black", stat="identity")
+  p<-p + guides(fill=FALSE)
+  p<-p + cleanTheme() +
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.x = element_text(angle = 90, hjust=1),
+          axis.text = element_text(size=7)
+    )
+  
+  gene_enrichment_plot <- paste("gene_enrichment.pdf")
+  cat("Writing file", gene_enrichment_plot, "\n")
+  ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 5, height = 10)
   p
   
 }
@@ -774,7 +830,7 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_len
     # Calculate the fraction of geneome occupied by each gene
     genefraction<-genes[[g]]/genome_length
     
-    # How many times should we expect to see this gene hit in our data (given number of obs. and fraction)?
+    # How many times should we expect to see this gene hit in our data (given number of obs. and fraction of genome)?
     gene_expect<-snv_count*(genefraction)
     
     # observed/expected 
@@ -864,13 +920,30 @@ snvStats <- function(){
   rank<-sort(table(data$sample), decreasing = TRUE)
   rank<-as.array(rank)
   
+  total=0
+
   for (i in 1:nrow(rank)){
     cat(names(rank[i]), rank[i], sep='\t', "\n")
+    total<-total + rank[i]
+    scores[i]<-rank[i]
   }
+  cat('--------------', '\n')
+  scores<-unlist(scores)
+
+  mean<-as.integer(mean(scores))
+  med<-as.integer(median(scores))
   
+  cat('total', total, sep='\t', '\n')
+  cat('samples', nrow(rank), sep='\t', '\n')
+
+  cat('--------------', '\n')
+  cat('mean', mean, sep='\t', '\n')
+  cat('median', med, sep='\t', '\n')
+  
+  cat('\n')
   all_ts<-nrow(filter(data, trans == "A>G" | trans == "C>T" | trans == "G>A" | trans == "T>C"))
   all_tv<-nrow(filter(data, trans != "A>G" & trans != "C>T" & trans != "G>A" & trans != "T>C"))
-  ts_tv<-all_ts/all_tv
+  ts_tv<-round((all_ts/all_tv), digits=2)
   cat("ts/tv =", ts_tv)
 }
 
