@@ -88,7 +88,7 @@ genTris <- function(){
 
 #' setCols
 #'
-#' Show top hit genes
+#' Get colours for n levels
 #' @import RColorBrewer
 #' @param df Dataframe [Required]
 #' @param col Column of dataframe. Colours will be set to levels(df$cols) [Required]
@@ -161,6 +161,7 @@ chromDist <- function(object=NA, notch=0){
 rainfall <- function(){
   data<-getData()
 
+  data<-filter(data, sample != "A373R11" & sample != 'A373R13')
   distances<-do.call(rbind, lapply(split(data[order(data$chrom, data$pos),], data$chrom[order(data$chrom, data$pos)]),
                         function(a) 
                           data.frame(a,
@@ -182,6 +183,10 @@ rainfall <- function(){
   
   p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
   p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
+  
+  rainfall_out<-paste("rainfall.pdf")
+  cat("Writing file", rainfall_out, "\n")
+  ggsave(paste("plots/", rainfall_out, sep=""), width = 20, height = 10)
   
   p
 }
@@ -308,12 +313,15 @@ sigTypes <- function(){
   mutData<-filter(mutData, score > 0.1)
   mutData<-droplevels(mutData)
   
+  cols <- setCols(mutData, 'signature')
+  
   p <- ggplot(mutData[order(mutData$signature),])
   p <- p + geom_bar(aes(reorder(sample, -score), score, fill=signature),colour="black", stat = "identity")
   p <- p + scale_x_discrete("Sample")
   p <- p + scale_y_continuous("Signature contribution", expand = c(0.01, 0.01), breaks=seq(0, 1, by=0.1))
   p <- p + cleanTheme() +
     theme(axis.text.x = element_text(angle = 45, hjust=1))
+  p <- p + cols
   p
 }
 
