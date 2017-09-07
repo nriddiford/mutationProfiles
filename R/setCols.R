@@ -1,6 +1,6 @@
 #' setCols
 #'
-#' Show top hit genes
+#' Get colours for n levels
 #' @import RColorBrewer
 #' @param df Dataframe [Required]
 #' @param col Column of dataframe. Colours will be set to levels(df$cols) [Required]
