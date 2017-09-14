@@ -784,7 +784,7 @@ geneEnrichmentPlot <- function() {
   
   p<-ggplot(gene_enrichment)
   p<-p + geom_bar(aes(gene, Log2FC, fill = as.character(test)), stat="identity")
-  p<-p + geom_bar(snv_data=highlightedGene, aes(gene, Log2FC, fill="red"), colour="black", stat="identity")
+  p<-p + geom_bar(data=highlightedGene, aes(gene, Log2FC, fill="red"), colour="black", stat="identity")
   p<-p + guides(fill=FALSE)
   p<-p + cleanTheme() +
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
