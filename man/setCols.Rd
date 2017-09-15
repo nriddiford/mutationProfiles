@@ -12,6 +12,6 @@ setCols(df, col)
 \item{col}{Column of dataframe. Colours will be set to levels(df$cols) [Required]}
 }
 \description{
-Show top hit genes
+Get colours for n levels
 }
 \keyword{cols}
