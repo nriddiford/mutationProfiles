@@ -1,11 +1,11 @@
-library(ggplot2)
-library(dplyr)
-library(RColorBrewer)
-library(BSgenome.Dmelanogaster.UCSC.dm6)
-library(deconstructSigs)
-library(reshape)
-library(data.table)
-
+suppressMessages(library(ggplot2))
+suppressMessages(library(dplyr))
+suppressMessages(library(RColorBrewer))
+suppressMessages(library(BSgenome.Dmelanogaster.UCSC.dm6))
+suppressMessages(library(deconstructSigs))
+suppressMessages(library(reshape))
+suppressMessages(library(data.table))
+suppressMessages(library(ggpubr))
 
 #' getData
 #'
@@ -502,6 +502,7 @@ featureEnrichmentPlot <- function() {
 #' @param genome_length The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
 #' @keywords enrichment
 #' @import dplyr
+#' @import ggpubr
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export 
 
@@ -634,7 +635,6 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
 }
 
 
-
 #' featuresHit
 #'
 #' Show top hit features
@@ -651,7 +651,7 @@ featuresHit <- function(){
   # Reoders descending
   snv_data$feature<-factor(snv_data$feature, levels = names(sort(table(snv_data$feature), decreasing = TRUE)))
   
-  #cols<-set_cols(snv_data, "feature")
+  #cols<-setCols(snv_data, "feature")
   
   p<-ggplot(snv_data)
   p<-p + geom_bar(aes(feature, fill = feature))
@@ -662,9 +662,14 @@ featuresHit <- function(){
   p<-p + scale_x_discrete(expand = c(0.01, 0.01))
   p<-p + scale_y_continuous(expand = c(0.01, 0.01))
   
+  # colour to a pub palette:
+  # p<-p + ggpar(p, palette = 'jco')
+  
   features_outfile<-paste("hit_features_count.pdf")
   cat("Writing file", features_outfile, "\n")
   ggsave(paste("plots/", features_outfile, sep=""), width = 20, height = 10)
+  
+  
   
   p
 }
