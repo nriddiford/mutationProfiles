@@ -18,7 +18,7 @@ use Getopt::Long qw/ GetOptions /;
 my $genome_file;
 my $vcf_file;
 my $snv_dist_file = 'combined_snvs.txt';
-my $out_dir = './';
+my $out_dir = '.';
 my $help;
 my $in_file; # Varscan native
 
@@ -33,7 +33,7 @@ GetOptions( 'genome=s'				  =>			\$genome_file,
 
 if ($help)  { exit usage() }
 
-unless ($in_file or $vcf_file ) { exit usage() }
+unless ( ($in_file or $vcf_file) and $genome_file ) { say "Both input file and a genome file required"; exit usage()  }
 
 my %chroms = qw / 2L 23513712 2R 25286936 3L 28110227 3R 32079331 4 1348131 X 23542271 Y 3667352 /;
 
@@ -205,7 +205,7 @@ sub count {
 sub write_dataframe {
   my ($sample, $snv_dist_ref) = @_;
 
-  my $outlocation = $out_dir . $snv_dist_file;
+  my $outlocation = $out_dir . "/" . $snv_dist_file;
   open my $snv_dist, '>>',  $outlocation or die $!;
 
   say "Printing out genome-wide snv distribution '$outlocation' for $sample...";

@@ -20,15 +20,17 @@ getData <- function(infile = "data/annotated_snvs.txt"){
   snv_data<-read.delim(infile, header = F)
   
   colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene")
-  snv_data$a_freq<-as.numeric(levels(snv_data$a_freq))[snv_data$a_freq]
+  #snv_data$a_freq<-as.numeric(levels(snv_data$a_freq))[snv_data$a_freq]
   
   #snv_data<-filter(snv_data, is.na(a_freq))
-  #snv_data<-filter(snv_data, a_freq >= 0.20)
+  #snv_data<-filter(snv_data, a_freq >= 0.30)
   
   #filter out samples
   snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
   #snv_data<-filter(snv_data, sample != "A373R11" & sample != 'A373R13')
   
+  # To select for old/new data
+  # snv_data <- filter(snv_data, grepl("^A|H", sample))
   
   snv_data<-droplevels(snv_data)
   dir.create(file.path("plots"), showWarnings = FALSE)
@@ -320,6 +322,11 @@ sigTypes <- function(){
   p <- p + scale_y_continuous("Signature contribution", expand = c(0.01, 0.01), breaks=seq(0, 1, by=0.1))
   p <- p + cleanTheme() +
     theme(axis.text.x = element_text(angle = 45, hjust=1))
+  
+  sigTypes<-paste("sigTypes.pdf")
+  cat("Writing file", sigTypes, "\n")
+  ggsave(paste("plots/", sigTypes, sep=""), width = 20, height = 10)
+  
   p
 }
 
@@ -334,12 +341,16 @@ sigPie <- function() {
     value = c(21, 14, 25, 40),
     cols = c('#DB8E00', '#64B200', '#00BD5C', '#00BADE'))
   
-  bp <- ggplot(df, aes(x="", y=value, fill = cols)) +
+  
+  all <- data.frame(
+    group = c("Sig3", "Sig8", "Sig9", "Sig21", "Sig25", "Unknown"),
+    value = c(29, 17, 10, 7, 7, 30),
+    cols = c('#E68613', '#0CB702', '#00BE67', '#ED68ED', '#FF61CC', 'grey'))
+  
+  bp <- ggplot(all, aes(x="", y=value, fill = cols)) +
     geom_bar(width = 1, stat = "identity", colour = "white") +
-    scale_fill_manual(values = levels(df$cols), labels = levels(df$group))
-  bp
-  
-  
+    scale_fill_manual(values = levels(all$cols), labels = levels(all$group))
+
   pie <- bp + coord_polar("y", start=0)
   pie + cleanTheme() +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
@@ -377,6 +388,203 @@ mutSpectrum <- function(){
   p
 }
 
+
+
+#' featureEnrichment
+#'
+#' Function to calculate enrichment of snv hits in genomic features
+#' @description Calculate the enrichment of snv hits in genomic features
+#' A 'features' file must be provided with the follwing format:
+#' feature	length	percentage
+#' This can be generated using the script 'script/genomic_features.pl' and a genome .gtf file
+#' The defualt genome length is set to the mappable regions of the Drosophila melanogastor Dmel6.12 genome (GEM mappability score > .5)
+#' (118274340). The full, assembled genome legnth for chroms 2/3/4/X/Y is 137547960
+#' @param features File containing total genomic lengths of features [Default 'data/genomic_features.txt']
+#' @param genome_length The total legnth of the genome [Default 118274340 (mappable regions on chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
+#' @keywords enrichment
+#' @import dplyr
+#' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
+#' @export 
+
+featureEnrichment <- function(features='data/genomic_features.txt', genome_length=118274340){
+  genome_features<-read.delim(features, header = T)
+  snv_data<-getData()
+  mutCount<-nrow(snv_data)
+  
+  # To condense exon counts into "exon"
+  snv_data$feature<-as.factor(gsub("exon_.*", "exon", snv_data$feature))
+  
+  classCount<-table(snv_data$feature)
+  classLengths<-setNames(as.list(genome_features$length), genome_features$feature)
+  
+  fun <- function(f) {
+    # Calculate the fraction of geneome occupied by each feature
+    featureFraction<-classLengths[[f]]/genome_length
+    
+    # How many times should we expect to see this feature hit in our snv_data (given number of obs. and fraction)?
+    featureExpect<-(mutCount*featureFraction)
+    
+    # observed/expected 
+    fc<-classCount[[f]]/featureExpect
+    fc<-round(fc,digits=1)
+    featureExpect<-round(featureExpect,digits=3)
+    
+    # Binomial test
+    if(!is.null(classLengths[[f]])){
+      if(classCount[f] >= featureExpect){
+        stat<-binom.test(x = classCount[f], n = mutCount, p = featureFraction, alternative = "greater")
+        test<-"enrichment"
+      }
+      else{
+        stat<-binom.test(x = classCount[f], n = mutCount, p = featureFraction, alternative = "less")
+        test<-"depletion"
+      }
+      sig_val<-'F'
+      if(stat$p.value <= 0.05){ sig_val<-'T'}
+      p_val<-format.pval(stat$p.value, digits = 3, eps=0.0001)
+      list(feature = f, observed = classCount[f], expected = featureExpect, fc = fc, test = test, sig = sig_val, p_val = p_val)
+    }
+  }
+  
+  enriched<-lapply(levels(snv_data$feature), fun)
+  enriched<-do.call(rbind, enriched)
+  featuresFC<-as.data.frame(enriched)
+  # Sort by FC value
+  featuresFC<-arrange(featuresFC,desc(as.integer(fc)))
+  return(featuresFC)
+}
+
+
+featureEnrichmentPlot <- function() {
+  feature_enrichment<-featureEnrichment()
+  
+  feature_enrichment$Log2FC <- log2(as.numeric(feature_enrichment$fc))
+  
+  feature_enrichment$feature <- as.character(feature_enrichment$feature)
+  feature_enrichment$fc <- as.numeric(feature_enrichment$fc)
+  
+  feature_enrichment <- transform(feature_enrichment, feature = reorder(feature, -fc))
+  
+  feature_enrichment <- filter(feature_enrichment, observed >= 5)
+  
+  # Custom sorting
+  # feature_enrichment$feature <- factor(feature_enrichment$feature, levels=c("intron", "intergenic", "exon", "3UTR", "ncRNA", "5UTR"))
+  
+  p<-ggplot(feature_enrichment)
+  p<-p + geom_bar(aes(feature, Log2FC, fill = as.character(test)), stat="identity")
+  p<-p + guides(fill=FALSE)
+  p<-p + ylim(-2,2)
+  p<-p + cleanTheme() +
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text = element_text(size=20)
+    )
+  
+  feat_plot <- paste("feat_plot.pdf")
+  cat("Writing file", feat_plot, "\n")
+  ggsave(paste("plots/", feat_plot, sep=""), width = 5, height = 10)
+  p
+  
+}
+
+
+#' geneEnrichment
+#'
+#' Function to calculate fold change enrichment in a set of snv calls correcting for gene length
+#' @description Calculate the enrichment of snv hits in length-corrected genes
+#' A 'gene_lengths' file must be provided with the following fields (cols 1..6 required)
+#' gene length chrom    start      end      tss scaling_factor
+#' This can be generated using the script 'script/genomic_features.pl' and a genome .gtf file
+#' The defualt genome length is set to the mappable regions of the Drosophila melanogastor Dmel6.12 genome (GEM mappability score > .5)
+#' (118274340). The full, assembled genome legnth for chroms 2/3/4/X/Y is 137547960
+#' @param gene_lengths File containing all genes and their lengths (as generated by 'script/genomefeatures.pl') [Default 'data/gene_lengths.txt']
+#' @param n The number of times we need to have seen a gene in our snv_data to view its enrichment score [Default 3]
+#' @param genome_length The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
+#' @keywords enrichment
+#' @import dplyr
+#' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
+#' @export 
+
+geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_length=118274340, print=NA){
+  gene_lengths<-read.delim(gene_lengths, header = T)
+  snv_data<-getData()
+  snv_data<-filter(snv_data, gene != "intergenic")
+  
+  snv_count<-nrow(snv_data)
+  
+  hit_genes<-table(snv_data$gene)
+  genes<-setNames(as.list(gene_lengths$length), gene_lengths$gene)
+  
+  fun <- function(g) {
+    # Calculate the fraction of geneome occupied by each gene
+    genefraction<-genes[[g]]/genome_length
+    
+    # How many times should we expect to see this gene hit in our snv_data (given number of obs. and fraction of genome)?
+    gene_expect<-snv_count*(genefraction)
+    
+    # observed/expected 
+    fc<-hit_genes[[g]]/gene_expect
+    log2FC = round(log2(fc),digits=1)
+    fc<-round(fc,digits=1)
+    
+    gene_expect<-round(gene_expect,digits=3)
+    list(gene = g, length = genes[[g]], observed = hit_genes[g], expected = gene_expect, fc = fc, log2FC = log2FC)
+  }
+  
+  enriched<-lapply(levels(snv_data$gene), fun)
+  enriched<-do.call(rbind, enriched)
+  genesFC<-as.data.frame(enriched)
+  # Filter for genes with few observations
+  genesFC<-filter(genesFC, observed >= n)
+  # Sort by FC value
+  genesFC<-arrange(genesFC,desc(as.integer(log2FC)))
+ 
+  
+  if(!is.na(print)){
+    cat("printing")
+    first.step <- lapply(genesFC, unlist) 
+    second.step <- as.data.frame(first.step, stringsAsFactors = F) 
+    ggtexttable(second.step)
+  }
+  
+  else{ return(genesFC) }
+}
+
+
+geneEnrichmentPlot <- function() {
+  gene_enrichment<-geneEnrichment(n=1)
+  
+  gene_enrichment$Log2FC <- log2(as.numeric(gene_enrichment$fc))
+  
+  gene_enrichment$gene <- as.character(gene_enrichment$gene)
+  gene_enrichment$fc <- as.numeric(gene_enrichment$fc)
+  
+  gene_enrichment <- transform(gene_enrichment, gene = reorder(gene, -fc))
+  
+  gene_enrichment$test <- ifelse(gene_enrichment$Log2FC>=0, "enriched", "depleted")
+  
+  gene_enrichment <- filter(gene_enrichment, observed >= 5)
+  gene_enrichment<-droplevels(gene_enrichment)
+  
+  highlightedGene <- filter(gene_enrichment, gene == "kuz")
+  highlightedGene <- droplevels(highlightedGene)
+  
+  p<-ggplot(gene_enrichment)
+  p<-p + geom_bar(aes(gene, Log2FC, fill = as.character(test)), stat="identity")
+  p<-p + geom_bar(data=highlightedGene, aes(gene, Log2FC, fill="red"), colour="black", stat="identity")
+  p<-p + guides(fill=FALSE)
+  p<-p + cleanTheme() +
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.x = element_text(angle = 90, hjust=1),
+          axis.text = element_text(size=7)
+    )
+  
+  gene_enrichment_plot <- paste("gene_enrichment.pdf")
+  cat("Writing file", gene_enrichment_plot, "\n")
+  ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 5, height = 10)
+  p
+  
+}
 
 #' snvinGene
 #'
@@ -424,6 +632,142 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   
   p
 }
+
+
+
+#' featuresHit
+#'
+#' Show top hit features
+#' @import ggplot2
+#' @keywords features
+#' @export
+
+featuresHit <- function(){
+  snv_data<-getData()
+  
+  # To condense exon counts into "exon"
+  snv_data$feature<-as.factor(gsub("exon_.*", "exon", snv_data$feature))
+  
+  # Reoders descending
+  snv_data$feature<-factor(snv_data$feature, levels = names(sort(table(snv_data$feature), decreasing = TRUE)))
+  
+  #cols<-set_cols(snv_data, "feature")
+  
+  p<-ggplot(snv_data)
+  p<-p + geom_bar(aes(feature, fill = feature))
+  #p<-p + cols
+  p<-p + cleanTheme() +
+    theme(axis.title.x=element_blank(),
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"))
+  p<-p + scale_x_discrete(expand = c(0.01, 0.01))
+  p<-p + scale_y_continuous(expand = c(0.01, 0.01))
+  
+  features_outfile<-paste("hit_features_count.pdf")
+  cat("Writing file", features_outfile, "\n")
+  ggsave(paste("plots/", features_outfile, sep=""), width = 20, height = 10)
+  
+  p
+}
+
+
+#' geneHit
+#'
+#' Show top hit genes
+#' @import dplyr
+#' @keywords gene
+#' @param n Show top n hits [Default 10] 
+#' @export
+
+geneHit <- function(n=10){
+  snv_data<-getData()
+  snv_data<-filter(snv_data, gene != "intergenic")
+  
+  hit_count<-as.data.frame(sort(table(unlist(snv_data$gene)), decreasing = T))
+  
+  colnames(hit_count)<- c("gene", "count")
+  head(hit_count, n)
+}
+
+
+
+#' snvStats
+#'
+#' Calculate some basic stats for snv snv_data
+#' @import dplyr
+#' @keywords stats
+#' @export
+
+snvStats <- function(){
+  snv_data<-getData()
+  cat("sample", "snvs", sep='\t', "\n")
+  rank<-sort(table(snv_data$sample), decreasing = TRUE)
+  rank<-as.array(rank)
+  
+  total=0
+  
+  for (i in 1:nrow(rank)){
+    cat(names(rank[i]), rank[i], sep='\t', "\n")
+    total<-total + rank[i]
+    scores[i]<-rank[i]
+  }
+  cat('--------------', '\n')
+  scores<-unlist(scores)
+  
+  mean<-as.integer(mean(scores))
+  med<-as.integer(median(scores))
+  
+  cat('total', total, sep='\t', '\n')
+  cat('samples', nrow(rank), sep='\t', '\n')
+  
+  cat('--------------', '\n')
+  cat('mean', mean, sep='\t', '\n')
+  cat('median', med, sep='\t', '\n')
+  
+  cat('\n')
+  all_ts<-nrow(filter(snv_data, trans == "A>G" | trans == "C>T" | trans == "G>A" | trans == "T>C"))
+  all_tv<-nrow(filter(snv_data, trans != "A>G" & trans != "C>T" & trans != "G>A" & trans != "T>C"))
+  ts_tv<-round((all_ts/all_tv), digits=2)
+  cat("ts/tv =", ts_tv)
+}
+
+#' triFreq
+#'
+#' This function counts the number of times each triunucleotide is found in a supplied genome
+#' @param genome BS.genome file defaults to BSgenome.Dmelanogaster.UCSC.dm6
+#' @param count Output total counts instead of frequency if set [Default no] 
+#' @import dplyr
+#' @keywords trinucleotides
+#' @export
+#' @return Dataframe of trinucs and freqs (or counts if count=1)
+
+triFreq <- function(genome=NA, count=NA){
+  if(is.na(genome)){
+    cat("No genome specfied, defaulting to 'BSgenome.Dmelanogaster.UCSC.dm6'\n")
+    library(BSgenome.Dmelanogaster.UCSC.dm6, quietly = TRUE)
+    genome <- BSgenome.Dmelanogaster.UCSC.dm6
+  }
+  
+  params <- new("BSParams", X = Dmelanogaster, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
+  snv_data<-as.data.frame(bsapply(params))
+  snv_data$genome<-as.integer(rowSums(snv_data))
+  snv_data$genome_adj<-(snv_data$genome*2)
+  
+  if(!is.na(count)){
+    tri_count<-snv_data['genome_adj']
+    tri_count<-cbind(tri = rownames(tri_count), tri_count)
+    colnames(tri_count) <- c("tri", "count")
+    rownames(tri_count) <- NULL
+    return(tri_count)
+  }
+  else{
+    snv_data$x <- (1/snv_data$genome)
+    scaling_factor<-snv_data['x']
+    return(scaling_factor)
+  }
+  
+}
+
+
 
 
 #' tssDist
@@ -667,403 +1011,6 @@ samplesPlot <- function(count=NA){
   ggsave(paste("plots/", samples_mut_spect, sep=""), width = 20, height = 10)
   p
 }
-
-
-#' featureEnrichment
-#'
-#' Function to calculate enrichment of snv hits in genomic features
-#' @description Calculate the enrichment of snv hits in genomic features
-#' A 'features' file must be provided with the follwing format:
-#' feature	length	percentage
-#' This can be generated using the script 'script/genomic_features.pl' and a genome .gtf file
-#' The defualt genome length is set to the mappable regions of the Drosophila melanogastor Dmel6.12 genome (GEM mappability score > .5)
-#' (118274340). The full, assembled genome legnth for chroms 2/3/4/X/Y is 137547960
-#' @param features File containing total genomic lengths of features [Default 'data/genomic_features.txt']
-#' @param genome_length The total legnth of the genome [Default 118274340 (mappable regions on chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
-#' @keywords enrichment
-#' @import dplyr
-#' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
-#' @export 
-
-featureEnrichment <- function(features='data/genomic_features.txt', genome_length=118274340){
-  genome_features<-read.delim(features, header = T)
-  snv_data<-getData()
-  mutCount<-nrow(snv_data)
-  
-  # To condense exon counts into "exon"
-  snv_data$feature<-as.factor(gsub("exon_.*", "exon", snv_data$feature))
-  
-  classCount<-table(snv_data$feature)
-  classLengths<-setNames(as.list(genome_features$length), genome_features$feature)
-  
-  fun <- function(f) {
-    # Calculate the fraction of geneome occupied by each feature
-    featureFraction<-classLengths[[f]]/genome_length
-    
-    # How many times should we expect to see this feature hit in our snv_data (given number of obs. and fraction)?
-    featureExpect<-(mutCount*featureFraction)
-    
-    # observed/expected 
-    fc<-classCount[[f]]/featureExpect
-    fc<-round(fc,digits=1)
-    featureExpect<-round(featureExpect,digits=3)
-    
-    # Binomial test
-    if(!is.null(classLengths[[f]])){
-      if(classCount[f] >= featureExpect){
-        stat<-binom.test(x = classCount[f], n = mutCount, p = featureFraction, alternative = "greater")
-        test<-"enrichment"
-      }
-      else{
-        stat<-binom.test(x = classCount[f], n = mutCount, p = featureFraction, alternative = "less")
-        test<-"depletion"
-      }
-      sig_val<-'F'
-      if(stat$p.value <= 0.05){ sig_val<-'T'}
-      p_val<-format.pval(stat$p.value, digits = 3, eps=0.0001)
-      list(feature = f, observed = classCount[f], expected = featureExpect, fc = fc, test = test, sig = sig_val, p_val = p_val)
-    }
-  }
-  
-  enriched<-lapply(levels(snv_data$feature), fun)
-  enriched<-do.call(rbind, enriched)
-  featuresFC<-as.data.frame(enriched)
-  # Sort by FC value
-  featuresFC<-arrange(featuresFC,desc(as.integer(fc)))
-  return(featuresFC)
-}
-
-
-enrichmentPlot <- function() {
-  feature_enrichment<-featureEnrichment()
-  
-  feature_enrichment$Log2FC <- log2(as.numeric(feature_enrichment$fc))
-  
-  feature_enrichment$feature <- as.character(feature_enrichment$feature)
-  feature_enrichment$fc <- as.numeric(feature_enrichment$fc)
-  
-  feature_enrichment <- transform(feature_enrichment, feature = reorder(feature, -fc))
-  
-  feature_enrichment <- filter(feature_enrichment, observed >= 5)
-  
-  p<-ggplot(feature_enrichment)
-  p<-p + geom_bar(aes(feature, Log2FC, fill = as.character(test)), stat="identity")
-  p<-p + guides(fill=FALSE)
-  p<-p + ylim(-2,2)
-  p<-p + cleanTheme() +
-    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
-          axis.text.x = element_text(angle = 45, hjust=1),
-          axis.text = element_text(size=20)
-    )
-  
-  feat_plot <- paste("feat_plot.pdf")
-  cat("Writing file", feat_plot, "\n")
-  ggsave(paste("plots/", feat_plot, sep=""), width = 5, height = 10)
-  p
-  
-}
-
-
-geneEnrichmentPlot <- function() {
-  gene_enrichment<-geneEnrichment(n=1)
-  
-  gene_enrichment$Log2FC <- log2(as.numeric(gene_enrichment$fc))
-  
-  gene_enrichment$gene <- as.character(gene_enrichment$gene)
-  gene_enrichment$fc <- as.numeric(gene_enrichment$fc)
-  
-  gene_enrichment <- transform(gene_enrichment, gene = reorder(gene, -fc))
-  
-  gene_enrichment$test <- ifelse(gene_enrichment$Log2FC>=0, "enriched", "depleted")
-  
-  gene_enrichment <- filter(gene_enrichment, observed >= 5)
-  gene_enrichment<-droplevels(gene_enrichment)
-  
-  highlightedGene <- filter(gene_enrichment, gene == "kuz")
-  highlightedGene <- droplevels(highlightedGene)
-  
-  p<-ggplot(gene_enrichment)
-  p<-p + geom_bar(aes(gene, Log2FC, fill = as.character(test)), stat="identity")
-  p<-p + geom_bar(data=highlightedGene, aes(gene, Log2FC, fill="red"), colour="black", stat="identity")
-  p<-p + guides(fill=FALSE)
-  p<-p + cleanTheme() +
-    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
-          axis.text.x = element_text(angle = 90, hjust=1),
-          axis.text = element_text(size=7)
-    )
-  
-  gene_enrichment_plot <- paste("gene_enrichment.pdf")
-  cat("Writing file", gene_enrichment_plot, "\n")
-  ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 5, height = 10)
-  p
-  
-}
-
-
-#' geneEnrichment
-#'
-#' Function to calculate fold change enrichment in a set of snv calls correcting for gene length
-#' @description Calculate the enrichment of snv hits in length-corrected genes
-#' A 'gene_lengths' file must be provided with the following fields (cols 1..6 required)
-#' gene length chrom    start      end      tss scaling_factor
-#' This can be generated using the script 'script/genomic_features.pl' and a genome .gtf file
-#' The defualt genome length is set to the mappable regions of the Drosophila melanogastor Dmel6.12 genome (GEM mappability score > .5)
-#' (118274340). The full, assembled genome legnth for chroms 2/3/4/X/Y is 137547960
-#' @param gene_lengths File containing all genes and their lengths (as generated by 'script/genomefeatures.pl') [Default 'data/gene_lengths.txt']
-#' @param n The number of times we need to have seen a gene in our snv_data to view its enrichment score [Default 3]
-#' @param genome_length The total legnth of the genome [Default 137547960 (chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
-#' @keywords enrichment
-#' @import dplyr
-#' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
-#' @export 
-
-geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_length=118274340){
-  gene_lengths<-read.delim(gene_lengths, header = T)
-  snv_data<-getData()
-  snv_data<-filter(snv_data, gene != "intergenic")
-  
-  snv_count<-nrow(snv_data)
-  
-  hit_genes<-table(snv_data$gene)
-  genes<-setNames(as.list(gene_lengths$length), gene_lengths$gene)
-  
-  fun <- function(g) {
-    # Calculate the fraction of geneome occupied by each gene
-    genefraction<-genes[[g]]/genome_length
-    
-    # How many times should we expect to see this gene hit in our snv_data (given number of obs. and fraction of genome)?
-    gene_expect<-snv_count*(genefraction)
-    
-    # observed/expected 
-    fc<-hit_genes[[g]]/gene_expect
-    fc<-round(fc,digits=1)
-    gene_expect<-round(gene_expect,digits=3)
-    list(gene = g, length = genes[[g]], observed = hit_genes[g], expected = gene_expect, fc = fc)
-  }
-  
-  enriched<-lapply(levels(snv_data$gene), fun)
-  enriched<-do.call(rbind, enriched)
-  genesFC<-as.data.frame(enriched)
-  # Filter for genes with few observations
-  genesFC<-filter(genesFC, observed >= n)
-  # Sort by FC value
-  genesFC<-arrange(genesFC,desc(as.integer(fc)))
-  return(genesFC)
-}
-
-
-
-#' featuresHit
-#'
-#' Show top hit features
-#' @import ggplot2
-#' @keywords features
-#' @export
-
-featuresHit <- function(){
-  snv_data<-getData()
-  
-  # To condense exon counts into "exon"
-  snv_data$feature<-as.factor(gsub("exon_.*", "exon", snv_data$feature))
-  
-  # Reoders descending
-  snv_data$feature<-factor(snv_data$feature, levels = names(sort(table(snv_data$feature), decreasing = TRUE)))
-  
-  #cols<-set_cols(snv_data, "feature")
-  
-  p<-ggplot(snv_data)
-  p<-p + geom_bar(aes(feature, fill = feature))
-  #p<-p + cols
-  p<-p + cleanTheme() +
-    theme(axis.title.x=element_blank(),
-          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"))
-  p<-p + scale_x_discrete(expand = c(0.01, 0.01))
-  p<-p + scale_y_continuous(expand = c(0.01, 0.01))
-  
-  features_outfile<-paste("hit_features_count.pdf")
-  cat("Writing file", features_outfile, "\n")
-  ggsave(paste("plots/", features_outfile, sep=""), width = 20, height = 10)
-  
-  p
-}
-
-
-#' geneHit
-#'
-#' Show top hit genes
-#' @import dplyr
-#' @keywords gene
-#' @param n Show top n hits [Default 10] 
-#' @export
-
-geneHit <- function(n=10){
-  snv_data<-getData()
-  snv_data<-filter(snv_data, gene != "intergenic")
-  
-  hit_count<-as.data.frame(sort(table(unlist(snv_data$gene)), decreasing = T))
-  
-  colnames(hit_count)<- c("gene", "count")
-  head(hit_count, n)
-}
-
-
-
-#' snvStats
-#'
-#' Calculate some basic stats for snv snv_data
-#' @import dplyr
-#' @keywords stats
-#' @export
-
-snvStats <- function(){
-  snv_data<-getData()
-  cat("sample", "snvs", sep='\t', "\n")
-  rank<-sort(table(snv_data$sample), decreasing = TRUE)
-  rank<-as.array(rank)
-  
-  total=0
-  
-  for (i in 1:nrow(rank)){
-    cat(names(rank[i]), rank[i], sep='\t', "\n")
-    total<-total + rank[i]
-    scores[i]<-rank[i]
-  }
-  cat('--------------', '\n')
-  scores<-unlist(scores)
-  
-  mean<-as.integer(mean(scores))
-  med<-as.integer(median(scores))
-  
-  cat('total', total, sep='\t', '\n')
-  cat('samples', nrow(rank), sep='\t', '\n')
-  
-  cat('--------------', '\n')
-  cat('mean', mean, sep='\t', '\n')
-  cat('median', med, sep='\t', '\n')
-  
-  cat('\n')
-  all_ts<-nrow(filter(snv_data, trans == "A>G" | trans == "C>T" | trans == "G>A" | trans == "T>C"))
-  all_tv<-nrow(filter(snv_data, trans != "A>G" & trans != "C>T" & trans != "G>A" & trans != "T>C"))
-  ts_tv<-round((all_ts/all_tv), digits=2)
-  cat("ts/tv =", ts_tv)
-}
-
-#' triFreq
-#'
-#' This function counts the number of times each triunucleotide is found in a supplied genome
-#' @param genome BS.genome file defaults to BSgenome.Dmelanogaster.UCSC.dm6
-#' @param count Output total counts instead of frequency if set [Default no] 
-#' @import dplyr
-#' @keywords trinucleotides
-#' @export
-#' @return Dataframe of trinucs and freqs (or counts if count=1)
-
-triFreq <- function(genome=NA, count=NA){
-  if(is.na(genome)){
-    cat("No genome specfied, defaulting to 'BSgenome.Dmelanogaster.UCSC.dm6'\n")
-    library(BSgenome.Dmelanogaster.UCSC.dm6, quietly = TRUE)
-    genome <- BSgenome.Dmelanogaster.UCSC.dm6
-  }
-  
-  params <- new("BSParams", X = Dmelanogaster, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
-  snv_data<-as.data.frame(bsapply(params))
-  snv_data$genome<-as.integer(rowSums(snv_data))
-  snv_data$genome_adj<-(snv_data$genome*2)
-  
-  if(!is.na(count)){
-    tri_count<-snv_data['genome_adj']
-    tri_count<-cbind(tri = rownames(tri_count), tri_count)
-    colnames(tri_count) <- c("tri", "count")
-    rownames(tri_count) <- NULL
-    return(tri_count)
-  }
-  else{
-    snv_data$x <- (1/snv_data$genome)
-    scaling_factor<-snv_data['x']
-    return(scaling_factor)
-  }
-  
-}
-
-
-# svBreaks<-read.delim("../DUMMYSV.txt", header = F)
-# colnames(svBreaks) <- c("event", "bp_no", "sample", "chrom", "bp", "gene", "feature", "type", "length")
-# svBreaks<-head(svBreaks,10)
-# svBreaks<-select(svBreaks, sample, chrom, bp, gene, type)
-# svBreaks <- droplevels(svBreaks)
-
-# 
-# snv_data<-read.delim("DUMMY_DATA.txt", header=F)
-# colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene")
-# snv_data<-head(snv_data,10)
-# snv_data<-select(snv_data, sample, chrom, pos)
-# 
-# snv_data <- subset(snv_data, sample %in% levels(svBreaks$sample))
-# snv_data <- droplevels(snv_data)
-# 
-# snv_data <- subset(snv_data, chrom %in% levels(svBreaks$chrom))
-# snv_data <- droplevels(snv_data)
-
-# svBreaks<-structure(list(sample = structure(c(1L, 1L, 1L, 2L, 2L, 2L, 1L, 
-#                                               1L, 2L, 1L), .Label = c("S1", "S2"), class = "factor"), chrom = structure(c(1L, 
-#                                                                                                                           1L, 1L, 1L, 1L, 1L, 2L, 2L, 2L, 2L), .Label = c("2L", "2R"), class = "factor"), 
-#                          bp = c(2425901L, 2426025L, 6694426L, 6694566L, 8387755L, 
-#                                 8387927L, 8963713L, 963799L, 980364L, 980521L), gene = structure(c(3L, 
-#                                                                                                    3L, 5L, 5L, 4L, 4L, 2L, 2L, 1L, 1L), .Label = c("CG8213", 
-#                                                                                                                                                    "CG8216", "intergenic", "pdm3", "Tsp"), class = "factor"), 
-#                          type = structure(c(2L, 1L, 2L, 1L, 3L, 3L, 3L, 4L, 4L, 3L
-#                          ), .Label = c("DEL", "DUP", "INV", "TANDUP"), class = "factor")), row.names = c(NA, 
-#                                                                                                          10L), .Names = c("sample", "chrom", "bp", "gene", "type"), class = "data.frame")
-# 
-# 
-# snv_data<-structure(list(sample = structure(c(1L, 2L, 2L, 1L, 1L, 1L, 1L, 
-#                                           2L, 2L, 2L), .Label = c("S1", "S2"), class = "factor"), chrom = structure(c(1L, 
-#                                                                                                                       1L, 1L, 2L, 2L, 2L, 1L, 1L, 1L, 2L), .Label = c("2L", "2R"), class = "factor"), 
-#                      pos = c(318351L, 605574L, 1014043L, 2031592L, 2886957L, 2910379L, 
-#                              2218351L, 105574L, 1344043L, 216957L)), .Names = c("sample", 
-#                                                                                 "chrom", "pos"), row.names = c(NA, 10L), class = "data.frame")
-# 
-# 
-# 
-# fun3 <- function(p) {
-#   index<-which.min(abs(sv_df$bp - p))
-#   closestBp<-as.numeric(sv_df$bp[index])
-#   chrom<-as.character(sv_df$chrom[index])
-#   gene<-as.character(sv_df$gene[index])
-#   sample<-as.character(sv_df$sample[index])
-#   type<-as.character(sv_df$type[index])
-#   
-#   dist<-(p-closestBp)
-#   list(p, closestBp, dist, chrom, gene, type, sample)
-# }
-# 
-# l <- list()
-# 
-# for (c in levels(snv_data$chrom)){
-#   for (s in levels(snv_data$sample)){
-# 
-#     df<-filter(snv_data, chrom == c & sample == s)
-#     sv_df<-filter(svBreaks, chrom == c & sample == s)
-#     
-#     dist2bp<-lapply(df$pos, fun3)
-#     dist2bp<-do.call(rbind, dist2bp)
-#     dist2bp<-as.data.frame(dist2bp)
-#     
-#     colnames(dist2bp)=c("snp", "closest_bp", "min_dist", "chrom", "closest_gene", "type", "sample")
-#     cat("Chrom = ", c, "Sample = ", s, "\n")
-#     dist2bp$min_dist<-as.numeric(dist2bp$min_dist)
-#     l[[s]] <- dist2bp
-#   }
-#   #l[[c]] <- dist2bp
-# }
-# 
-# dist2bp<-do.call(rbind, l)
-# dist2bp<-as.data.frame(dist2bp)
-# dist2bp$chrom<-as.character(dist2bp$chrom)
-# dist2bp$type<-as.character(dist2bp$type)
-# 
-# print(dist2bp)
-# 
 
 
 ###########

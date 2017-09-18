@@ -126,9 +126,9 @@ sub getbps {
         if ( (not exists $smallest_hit_feature{$gene}) or ( $smallest_hit_feature{$gene} > $length ) ){
           $smallest_hit_feature{$gene} = $length;
           $bp_feature = $feature;
-          $feature = 'exon' if $feature eq 'CDS';
+          $bp_feature = 'exon' if $bp_feature eq 'CDS';
           $bp_gene = $gene;
-          $hit_feature = "$gene, $feature";
+          $hit_feature = "$gene, $bp_feature";
         }
 
       }

@@ -17,10 +17,12 @@ use Getopt::Long qw/ GetOptions /;
 my $help;
 my $vcf_file;
 my $source = '';
+my $out_dir = '.';
 
 GetOptions( 'help'            =>    \$help,
             'vcf_in=s'        =>    \$vcf_file,
-            'source=s'        =>    \$source
+            'source=s'        =>    \$source,
+            'out_dir=s'       =>    \$out_dir
           ) or die usage();
 
 if ($help) { exit usage() }
@@ -35,7 +37,8 @@ my ($name, $extention) = split(/\.([^.]+)$/, basename($vcf_file), 2);
 
 my ($id) = (split(/_/, $name))[0];
 
-open my $out, '>', $id . "_" . $source . "_filt.vcf";
+
+open my $out, '>', $out_dir . "/" . $id . "_" . $source . "_filt.vcf";
 
 print $out "$_\n" for @headers;
 
@@ -82,21 +85,21 @@ for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
      }
 
      if ($t_alt_ad < 2){
-       say "Alt allele depth filt: $t_alt_ad";
+      #  say "Alt allele depth filt: $t_alt_ad";
        $filter++;
      }
 
      # Filter if alt AD + ref AD < 5
      if ($t_alt_ad + $t_ref_ad < 5){
        my $sample_depth = $t_alt_ad + $t_ref_ad;
-       say "Sample depth filt: $sample_depth";
-       say $calls{$_};
+      #  say "Sample depth filt: $sample_depth";
+      #  say $calls{$_};
        $filter++;
      }
      # Filter if normal alt AD != 0
 
      if ($n_alt_ad != 0){
-       say "Normal alt allele depth filt: $n_alt_ad";
+      #  say "Normal alt allele depth filt: $n_alt_ad";
        $filter++;
      }
    }
@@ -105,7 +108,7 @@ for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
      my $af = $sample_info{$_}{'TUMOR'}{'AF'};
 
      if ($af < 0.075){
-       say "Allele freq filt: $af";
+      #  say "Allele freq filt: $af";
        $filter++;
      }
 
@@ -135,6 +138,7 @@ for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
    -h, --help            show this help message and exit
    -v, --vcf_file        input .vcf file
    -s, --source          source type (e.g. 'Mutect2') - will be appended to output file name
+   -o, --out_dir         output directory [Default = cwd]
  "
  }
 
