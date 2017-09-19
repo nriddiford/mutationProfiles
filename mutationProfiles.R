@@ -675,15 +675,17 @@ geneLenPlot <- function(n=0){
   summary(enrichement_lm) 
   
   
-  p<-ggplot(gene_enrichment,aes((length/1000), observed, size=fc))
+  p<-ggplot(gene_enrichment,aes((length/1000), observed, size=log2FC, alpha = 0.8))
   p<-p+geom_point(aes(colour = col))
-  p<-p+scale_x_continuous("Kb", limits=c(1,500))
-  p<-p+scale_y_continuous("Count", limits=c(0,max(gene_enrichment$observed)))
+  p<-p+scale_x_continuous("Kb", limits=c(0,500), expand=c(0.01,0))
+  p<-p+scale_y_continuous("Count", limits=c(0,max(gene_enrichment$observed)),expand=c(0.01,0))
+  p<-p+scale_size_continuous(range=c(min(gene_enrichment$log2FC),max(gene_enrichment$log2FC)))
   
   p<-p + cleanTheme()
   
   p <- p + geom_smooth(method=lm, show.legend = FALSE)
-
+  #p <- p + ggpar(p, palette = 'jco')
+  
   p
   
 }
