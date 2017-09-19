@@ -24,13 +24,10 @@ my $gtf_file = '/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Featur
 my $gene_to_inspect = shift;
 
 open my $gtf_in, '<', $gtf_file;
-
 open my $gene_lengths, '>', 'data/gene_lengths.txt';
-
 open my $tss_pos, '>', 'data/tss_positions.txt';
 
-print $gene_lengths join("\t", 'gene', 'length', 'chrom', 'start', 'end', 'tss', 'scaling_factor') . "\n";
-
+print $gene_lengths join("\t", 'gene', 'length', 'chrom', 'start', 'end', 'tss', 'scaling_factor', 'id') . "\n";
 print $tss_pos join("\t", 'gene', 'chrom', 'tss') . "\n";
 
 my %exons;
@@ -41,11 +38,12 @@ my (%exons_per_gene);
 
 while(<$gtf_in>){
   chomp;
-  my ($chrom, $feature, $start, $stop, $gene) = (split)[0,2,3,4,11];
+  my ($chrom, $feature, $start, $stop, $id, $gene) = (split)[0,2,3,4,9,11];
 
   next unless grep /$chrom/, @chroms;
 
   ($gene) = $gene =~ /\"(.*)\";/;
+  ($id) = $id =~ /\"(.*)\";/;
   my ($gene_length, $transcript,$feature_length);
 
   next if $feature eq 'CDS' or $feature eq 'mRNA';
@@ -58,7 +56,7 @@ while(<$gtf_in>){
   $feature_length = ($stop - $start);
 
   if ($feature eq 'gene'){
-    $gene_info{$gene}{'gene'} = [ $chrom, $start, $stop, $feature_length, '-' ];
+    $gene_info{$gene}{'gene'} = [ $chrom, $start, $stop, $feature_length, '-', $id ];
     $gene_length = ($stop - $start);
   }
 
@@ -109,9 +107,9 @@ for my $gene ( sort keys %longest_feature_per_gene ){
       $gene_length = $longest_feature_per_gene{$gene}{'gene'};
       my $scaling_factor = 1/$gene_length;
 
-      my ( $chrom, $start, $stop, $len, $tss ) = @{$gene_info{$gene}{'gene'}};
+      my ( $chrom, $start, $stop, $len, $tss, $id ) = @{$gene_info{$gene}{'gene'}};
 
-      print $gene_lengths join("\t", $gene, $gene_length, $chrom, $start, $stop, $tss, $scaling_factor) . "\n";
+      print $gene_lengths join("\t", $gene, $gene_length, $chrom, $start, $stop, $tss, $scaling_factor, $id) . "\n";
     }
   }
   my $intron_length = ($gene_length - $per_gene_feature_length);
