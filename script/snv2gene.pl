@@ -147,7 +147,7 @@ usage: $Script [-h] [-i INFILE] [-f FEATURES]
 sv2gene
 author: Nick Riddiford (nick.riddiford\@curie.fr)
 version: v1.0
-description: Annotate breakpoints of structural variants in svParser summary file
+description: Annotate SNVs for genomic features and genes
 
 arguments:
   -h, --help            show this help message and exit
