@@ -1,11 +1,14 @@
 suppressMessages(library(ggplot2))
 suppressMessages(library(dplyr))
+suppressMessages(library(plyr))
 suppressMessages(library(RColorBrewer))
 suppressMessages(library(BSgenome.Dmelanogaster.UCSC.dm6))
 suppressMessages(library(deconstructSigs))
 suppressMessages(library(reshape))
 suppressMessages(library(data.table))
 suppressMessages(library(ggpubr))
+suppressMessages(library(plotly))
+
 
 #' getData
 #'
@@ -16,28 +19,41 @@ suppressMessages(library(ggpubr))
 #' @export
 #' @return Dataframe
 
-getData <- function(infile = "data/annotated_snvs.txt"){
+getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/isc_genes_rnaSeq.csv'){
   snv_data<-read.delim(infile, header = F)
-  
-  colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene")
+  colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene", "id")
 
-  #filter out samples
+  # Read in tissue specific expression data
+  seq_data<-read.csv(header = F, expression_data)
+  colnames(seq_data)<-c('fpkm', 'id')
+  
+  snv_data <- join(snv_data,seq_data,by="id")
+  
+  snv_data$fpkm<-round(snv_data$fpkm, 1)
+  
+  # Order by FPKM
+  snv_data<- arrange(snv_data, desc(fpkm))
+  
+  # Filter for genes expressed in RNA-Seq data
+  # snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0)
+
+  # Filter on allele freq
+  #snv_data<-filter(snv_data, is.na(a_freq))
+  #snv_data<-filter(snv_data, a_freq >= 0.20)
+  
+  # Filter out samples
   snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
   #snv_data<-filter(snv_data, sample != "A373R11" & sample != 'A373R13')
   
-  # Filter on allele frequency
-  #snv_data<-filter(snv_data, a_freq >= 0.20)
-  
-  # Find vars called by both Mu and Var
-  ## Need to make sure to remove one of the calls...
-  snv_data$dups<-duplicated(snv_data[,2:3])
-  
+  # Find vars called by both Mu and Var 
+  # Must also filter one of these calls out...
+  snv_data$dups<-duplicated(snv_data[,1:3])
   snv_data<-mutate(snv_data, caller = ifelse(dups == "TRUE", 'varscan2_mutect2' , as.character(caller)))
   
-  # Select for calls made by both V and M
+  # Filter for calls made by both V and M
   # snv_data<-filter(snv_data, caller == 'varscan2_mutect2')
   
-  # To select for old/new data
+  # Filter for old/new data
   # snv_data <- filter(snv_data, grepl("^A|H", sample))
   
   snv_data<-droplevels(snv_data)
@@ -541,27 +557,16 @@ featureEnrichmentPlot <- function() {
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export 
 
-geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_length=118274340, print=NA, seq_data='data/isc_genes_rnaSeq.csv'){
+geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_length=118274340, print=NA){
   gene_lengths<-read.delim(gene_lengths, header = T)
   snv_data<-getData()
   snv_data<-filter(snv_data, gene != "intergenic")
   snv_data<-droplevels(snv_data)
-  
-  # Read in tissue specific expression data
-  seqData<-read.csv(header = F, seq_data)
-  colnames(seqData)<-c('FPKM', 'id')
-  
-  snv_data %>%
-    filter(id %in% seqData$id)
-  
   snv_count<-nrow(snv_data)
-  
   
   hit_genes<-table(snv_data$gene)
   genes<-setNames(as.list(gene_lengths$length), gene_lengths$gene)
-  
-  
-  
+  expression<-setNames(as.list(snv_data$fpkm), snv_data$gene)
   
   fun <- function(g) {
     # Calculate the fraction of geneome occupied by each gene
@@ -576,7 +581,7 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_len
     fc<-round(fc,digits=1)
     
     gene_expect<-round(gene_expect,digits=3)
-    list(gene = g, length = genes[[g]], observed = hit_genes[g], expected = gene_expect, fc = fc, log2FC = log2FC)
+    list(gene = g, length = genes[[g]], fpkm = expression[[g]],  observed = hit_genes[g], expected = gene_expect, fc = fc, log2FC = log2FC)
   }
   
   enriched<-lapply(levels(snv_data$gene), fun)
@@ -647,6 +652,38 @@ geneEnrichmentPlot <- function(n=0) {
   gene_enrichment_plot <- paste("gene_enrichment.pdf")
   cat("Writing file", gene_enrichment_plot, "\n")
   ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 5, height = 10)
+  p
+  
+}
+
+
+
+geneLenPlot <- function(n=0){
+  gene_enrichment<-geneEnrichment(n=n)
+  gene_enrichment<-filter(gene_enrichment, length >= 1000, length < 500000)
+  
+  gene_enrichment$length<-as.numeric(gene_enrichment$length)
+  gene_enrichment$observed<-as.numeric(gene_enrichment$observed)
+  gene_enrichment$log2FC<-as.numeric(gene_enrichment$log2FC)
+  gene_enrichment$fc<-as.numeric(gene_enrichment$fc)
+  
+  gene_enrichment<-droplevels(gene_enrichment)
+  gene_enrichment$col<-as.factor(ifelse(gene_enrichment$log2FC > 0, 'enrichment', 'depletion'))
+  
+  
+  enrichement_lm = lm(length ~ observed, data = gene_enrichment)
+  summary(enrichement_lm) 
+  
+  
+  p<-ggplot(gene_enrichment,aes((length/1000), observed, size=fc))
+  p<-p+geom_point(aes(colour = col))
+  p<-p+scale_x_continuous("Kb", limits=c(1,500))
+  p<-p+scale_y_continuous("Count", limits=c(0,max(gene_enrichment$observed)))
+  
+  p<-p + cleanTheme()
+  
+  p <- p + geom_smooth(method=lm, show.legend = FALSE)
+
   p
   
 }

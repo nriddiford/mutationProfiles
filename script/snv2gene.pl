@@ -42,11 +42,12 @@ sub make_gene_hash {
 
   while(<$bed_in>){
     chomp;
-    my ($chrom, $feature, $start, $stop, $gene) = (split)[0,2,3,4,11];
+    my ($chrom, $feature, $start, $stop, $id, $gene) = (split)[0,2,3,4,9,11];
     ($gene) = $gene =~ /\"(.*)\";/;
+    ($id) = $id =~ /\"(.*)\";/;
 
     if ($feature eq 'gene'){
-      $genes{$chrom}{$gene} = [$start, $stop];
+      $genes{$chrom}{$gene} = [$start, $stop, $id];
     }
 
     else {
@@ -79,15 +80,15 @@ sub annotate_SNVs {
 
     my (%hits, $hit_ref);
     # my @hit_genes;
-    my ($hit_gene, $hit_feature);
+    my ($hit_gene, $hit_feature, $hit_id);
     my $hit_object = "intergenic";
 
-    ($hit_object, $hit_feature, $hit_gene,  $hit_ref) = getbps($chrom, $pos, $hit_object, \%hits);
+    ($hit_object, $hit_feature, $hit_gene, $hit_id,  $hit_ref) = getbps($chrom, $pos, $hit_object, \%hits);
     %hits = %{ $hit_ref };
 
     say "snv in sample $sample: $chrom\:$pos is in $hit_object";
 
-    print $annotated_snvs join("\t", $_, $hit_feature, $hit_gene) . "\n";
+    print $annotated_snvs join("\t", $_, $hit_feature, $hit_gene, $hit_id) . "\n";
     # $call++;
   }
 }
@@ -99,11 +100,14 @@ sub getbps {
   my %smallest_hit_feature;
   my $bp_feature = "intergenic";
   my $bp_gene = "intergenic";
+  my $bp_gene_id = "intergenic";
 
 
   for my $gene ( sort { $genes{$chrom}{$a}[0] <=> $genes{$chrom}{$b}[0] } keys %{$genes{$chrom}} ){
     # Smallest features are last (and will then replace larger overlapping features i.e. exon over CDS)
     my %smallest_hit_feature;
+
+    my $gene_id = $genes{$chrom}{$gene}[2];
 
     for my $transcript ( sort keys %{$transcript_length{$chrom}{$gene}}){
 
@@ -128,7 +132,9 @@ sub getbps {
           $bp_feature = $feature;
           $bp_feature = 'exon' if $bp_feature eq 'CDS';
           $bp_gene = $gene;
+          $bp_gene_id = $gene_id;
           $hit_feature = "$gene, $bp_feature";
+
         }
 
       }
@@ -136,7 +142,7 @@ sub getbps {
   }
 
 }
-  return ($hit_feature, $bp_feature, $bp_gene, \%hits);
+  return ($hit_feature, $bp_feature, $bp_gene, $bp_gene_id, \%hits);
 }
 
 sub usage {
