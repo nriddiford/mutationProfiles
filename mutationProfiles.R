@@ -35,7 +35,7 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   snv_data<- arrange(snv_data, desc(fpkm))
   
   # Filter for genes expressed in RNA-Seq data
-  # snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0)
+  # snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
 
   # Filter on allele freq
   #snv_data<-filter(snv_data, is.na(a_freq))
@@ -600,22 +600,26 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_len
     second.step <- as.data.frame(first.step, stringsAsFactors = F)
     #arrange(second.step,desc(as.integer(log2FC)))
     
-    ptable<-ggtexttable(second.step, rows = NULL, theme = ttheme("mBlue"))
+    ggtexttable(second.step, rows = NULL, theme = ttheme("mBlue"))
     
     
-    text <- paste("Genes enriched in SNV dataset",
-                  "only showing genes with at least", n, "observations", sep = " ")
-    text.p <- ggparagraph(text = text, size = 11, color = "black")
-    # Arrange the plots on the same page
-    ggarrange(text.p, ptable,
-              ncol = 1, nrow = 2,
-              align=("h")
-              ) %>%
-    ggexport(filename = "plots/gene_enrichment_table.pdf")
-    ggarrange(text.p, ptable,
-              ncol = 1, nrow = 2,
-              align="h"
-    )
+    # text <- paste("Genes enriched in SNV dataset",
+    #               "only showing genes with at least", n, "observations", sep = " ")
+    # text.p <- ggparagraph(text = text, size = 11, color = "black")
+    # # Arrange the plots on the same page
+    # ggarrange(text.p, ptable,
+    #           ncol = 1, nrow = 2,
+    #           align=("h")
+    #           ) %>%
+    
+    gene_enrichment_table <- paste("gene_enrichment_table.pdf")
+    ggsave(paste("plots/", gene_enrichment_table, sep=""), width = 5, height = (nrow(genesFC)/3))
+    
+    #ggexport(filename = "plots/gene_enrichment_table.pdf")
+    # ggarrange(text.p, ptable,
+    #           ncol = 1, nrow = 2,
+    #           align="h"
+    # )
   }
   
   else{ return(genesFC) }
@@ -658,35 +662,93 @@ geneEnrichmentPlot <- function(n=0) {
 
 
 
-geneLenPlot <- function(n=0){
+geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   gene_enrichment<-geneEnrichment(n=n)
-  gene_enrichment<-filter(gene_enrichment, length >= 1000, length < 500000)
-  
+  gene_lengths<-read.delim(gene_lengths_in, header = T)
+
   gene_enrichment$length<-as.numeric(gene_enrichment$length)
-  gene_enrichment$observed<-as.numeric(gene_enrichment$observed)
   gene_enrichment$log2FC<-as.numeric(gene_enrichment$log2FC)
   gene_enrichment$fc<-as.numeric(gene_enrichment$fc)
+  gene_enrichment$observed<-as.numeric(gene_enrichment$observed)
   
   gene_enrichment<-droplevels(gene_enrichment)
   gene_enrichment$col<-as.factor(ifelse(gene_enrichment$log2FC > 0, 'enrichment', 'depletion'))
   
+  #  Var in x explained by Y
+  # par(mfrow=c(2,2))
+  # plot(enrichment_lm)
   
-  enrichement_lm = lm(length ~ observed, data = gene_enrichment)
-  summary(enrichement_lm) 
+  gene_enrichment<-gene_enrichment[,c("gene","fpkm","observed",'expected','fc', 'log2FC', 'col')]
+  gene_enrichment<-droplevels(gene_enrichment)
+  
+  gene_lengths_df<-join(as.data.frame(gene_lengths), gene_enrichment, 'gene', type = "left")
+  
+  gene_lengths_df$fpkm <- ifelse(gene_lengths_df$fpkm=='NULL' | gene_lengths_df$fpkm=='NA' | is.na(gene_lengths_df$fpkm), 0, gene_lengths_df$fpkm)
+  gene_lengths_df$level <- ifelse(gene_lengths_df$fpkm == 0 , 'not_expressed', 'expressed')
+  gene_lengths_df$observed <- ifelse(gene_lengths_df$observed == 'NULL' | gene_lengths_df$observed == 'NA', 0, gene_lengths_df$observed)
+  
+  gene_lengths_df$col <- ifelse(is.na(gene_lengths_df$col), 'NA', as.character(gene_lengths_df$col))
+  
+  gene_lengths_df$col <- ifelse(gene_lengths_df$fpkm > 0, 'expressed', gene_lengths_df$col)
+  
+  gene_lengths_df$log10length<-log10(gene_lengths$length)
+  
+  enrichment_lm <- lm(observed ~ log10length, data = gene_lengths_df)
+  enrichment_exp <- lm(observed ~ exp(log10length), data = gene_lengths_df)
+  
+  # plot( observed ~ length, data = gene_enrichment)
+  lmRsq<-round(summary(enrichment_lm)$adj.r.squared, 2)
+  expRsq<-round(summary(enrichment_exp)$adj.r.squared, 2)
   
   
-  p<-ggplot(gene_enrichment,aes((length/1000), observed, size=log2FC, alpha = 0.8))
-  p<-p+geom_point(aes(colour = col))
-  p<-p+scale_x_continuous("Kb", limits=c(0,500), expand=c(0.01,0))
-  p<-p+scale_y_continuous("Count", limits=c(0,max(gene_enrichment$observed)),expand=c(0.01,0))
-  p<-p+scale_size_continuous(range=c(min(gene_enrichment$log2FC),max(gene_enrichment$log2FC)))
+  gene_lengths_p<-filter(gene_lengths_df, col != 'NA') 
   
-  p<-p + cleanTheme()
+ # gene_lengths_p<-filter(gene_lengths_p, length >= 1000)
+  
+  
+  p <- ggplot(gene_lengths_p, aes(log10length, observed))
+  p <- p + geom_jitter(aes(size=log2FC, colour = col, alpha = 0.8))
+  p <- p + scale_color_manual(values=c("#F8766D", "#00AFBB", "#E7B800"))
+  p <- p + scale_x_continuous("Log10 Kb", limits=c(1, max(gene_lengths_p$log10length)))
+  p <- p + scale_y_continuous("Count", limits=c(0,max(gene_lengths_p$observed)))
+  p <- p + scale_size_continuous(range=c(min(gene_lengths_p$log2FC),max(gene_lengths_p$log2FC)))
+
+  p <- p + annotate(x = 4, y = 20, geom="text", label = paste('Lin:R^2:', lmRsq),size = 7,parse = TRUE)
+  p <- p + annotate(x = 4, y = 18, geom="text", label = paste('Exp:R^2:', expRsq),size = 7,parse = TRUE)
   
   p <- p + geom_smooth(method=lm, show.legend = FALSE)
-  #p <- p + ggpar(p, palette = 'jco')
+  p <- p + geom_smooth(method=lm, formula = y ~ exp(x), colour = "purple", show.legend = FALSE)
   
-  p
+  
+  p <- p + cleanTheme()
+  p <- p + guides(alpha = FALSE)
+  
+  colours<-c( "#E7B800", "#00AFBB")
+  p2<-ggplot(gene_lengths_df, aes(log10length, alpha = 0.5, fill=level))
+  p2<-p2 + geom_density()
+  p2 <- p2 + cleanTheme()
+  p2 <- p2 + scale_x_continuous("Log10 Kb", limits=c(1, max(gene_lengths_df$log10length)))
+  p2 <- p2 + guides(alpha = FALSE)
+  p2 <- p2 + geom_rug(aes(colour=level))
+  p2<-p2 + scale_fill_manual(values=colours)
+  
+  # p<-ggscatter(gene_lengths_p, x = "log10length", y = "observed",
+  #           color = "col", size = "log2FC"
+  #           )
+
+  # p2<-ggdensity(gene_lengths_df, x = "log10length",
+  #           add = "mean", rug = TRUE,
+  #           color = "level", fill = "level",
+  #           palette = c("#00AFBB", "#E7B800")
+  #           )
+  # 
+  ggarrange(p,p2, 
+            labels = c("A", "B"),
+            ncol = 1, nrow = 2)
+  
+  gene_len<-paste("gene_lengths_count_model.pdf")
+  cat("Writing file", gene_len, "\n")
+  ggsave(paste("plots/", gene_len, sep=""), width = 20, height = 10)
   
 }
 
