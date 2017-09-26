@@ -1,3 +1,12 @@
+list.of.packages <- c('ggplot2', 'dplyr', 'plyr', 'RColorBrewer',
+                      'BSgenome.Dmelanogaster.UCSC.dm6', 'deconstructSigs',
+                      'reshape', 'data.table', 'ggpubr', 'plotly', 'grid', 'VennDiagram')
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)){
+  cat('Installing missing packages...\n')
+  install.packages(new.packages)
+}
+cat('Silently loading packages...')
 suppressMessages(library(ggplot2))
 suppressMessages(library(dplyr))
 suppressMessages(library(plyr))
@@ -8,6 +17,10 @@ suppressMessages(library(reshape))
 suppressMessages(library(data.table))
 suppressMessages(library(ggpubr))
 suppressMessages(library(plotly))
+suppressMessages(library(grid))
+suppressMessages(library(VennDiagram))
+
+set.seed(42)
 
 
 #' getData
@@ -27,7 +40,8 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   seq_data<-read.csv(header = F, expression_data)
   colnames(seq_data)<-c('fpkm', 'id')
   
-  snv_data <- join(snv_data,seq_data,by="id")
+  # Left might be better(...)
+  snv_data <- join(snv_data,seq_data,"id", type = 'left')
   
   snv_data$fpkm<-round(snv_data$fpkm, 1)
   
@@ -35,11 +49,11 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   snv_data<- arrange(snv_data, desc(fpkm))
   
   # Filter for genes expressed in RNA-Seq data
-  # snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
+  #snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
 
   # Filter on allele freq
   #snv_data<-filter(snv_data, is.na(a_freq))
-  #snv_data<-filter(snv_data, a_freq >= 0.20)
+ # snv_data<-filter(snv_data, a_freq >= 0.20)
   
   # Filter out samples
   snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
@@ -54,7 +68,7 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   # snv_data<-filter(snv_data, caller == 'varscan2_mutect2')
   
   # Filter for old/new data
-  # snv_data <- filter(snv_data, grepl("^A|H", sample))
+  #snv_data <- filter(snv_data, grepl("^A|H", sample))
   
   snv_data<-droplevels(snv_data)
   dir.create(file.path("plots"), showWarnings = FALSE)
@@ -132,49 +146,48 @@ setCols <- function(df, col){
 }
 
 
-#' chromDist
+#' snvStats
 #'
-#' Plot genome-wide snv distribution 
-#' @import ggplot2
-#' @keywords distribution
+#' Calculate some basic stats for snv snv_data
+#' @import dplyr
+#' @keywords stats
 #' @export
 
-chromDist <- function(object=NA, notch=0){
+snvStats <- function(){
   snv_data<-getData()
-  ext<-'.pdf'
-  if(is.na(object)){
-    object<-'grouped_trans'
-    cols<-setCols(snv_data, "grouped_trans")
+  cat("sample", "snvs", sep='\t', "\n")
+  rank<-sort(table(snv_data$sample), decreasing = TRUE)
+  rank<-as.array(rank)
+  
+  total=0
+  
+  scores=list()
+  for (i in 1:nrow(rank)){
+    cat(names(rank[i]), rank[i], sep='\t', "\n")
+    total<-total + rank[i]
+    scores[i]<-rank[i]
   }
+  cat('--------------', '\n')
+  scores<-unlist(scores)
   
-  if(notch){
-    snv_data<-exclude_notch()
-    ext<-'_excl.N.pdf'
-  }
+  mean<-as.integer(mean(scores))
+  med<-as.integer(median(scores))
   
-  cat("Plotting snvs by", object, "\n")
+  cat('total', total, sep='\t', '\n')
+  cat('samples', nrow(rank), sep='\t', '\n')
   
-  p<-ggplot(snv_data)
-  p<-p + geom_histogram(aes(pos/1000000, fill = get(object)), binwidth=0.1, alpha = 0.8)  
-  p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
-  p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33),expand = c(0.01, 0.01))
-  p<-p + scale_y_continuous("Number of snvs", expand = c(0.01, 0.01))
-  p<-p + cleanTheme() +
-    theme(axis.text.x = element_text(angle = 45, hjust=1),
-          axis.text = element_text(size=12),
-          axis.title = element_text(size=20),
-          strip.text.x = element_text(size = 15)
-    )
+  cat('--------------', '\n')
+  cat('mean', mean, sep='\t', '\n')
+  cat('median', med, sep='\t', '\n')
   
-  if (object == 'grouped_trans'){
-    p<-p + cols
-  }  
-  chrom_outfile<-paste("snv_dist_genome_by_", object, ext, sep = "")
-  cat("Writing file", chrom_outfile, "\n")
-  ggsave(paste("plots/", chrom_outfile, sep=""), width = 20, height = 10)
-  
-  p
+  cat('\n')
+  all_ts<-nrow(filter(snv_data, trans == "A>G" | trans == "C>T" | trans == "G>A" | trans == "T>C"))
+  all_tv<-nrow(filter(snv_data, trans != "A>G" & trans != "C>T" & trans != "G>A" & trans != "T>C"))
+  ts_tv<-round((all_ts/all_tv), digits=2)
+  cat("ts/tv = ", ts_tv,  sep='', '\n')
+
 }
+
 
 
 #' rainfall
@@ -204,7 +217,8 @@ rainfall <- function(){
   p<-p + geom_point(aes(pos/1000000, logdist, colour = grouped_trans))
   p <- p + cleanTheme() +
     theme(axis.text.x = element_text(angle=45, hjust = 1),
-          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted")
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          strip.text = element_text(size=20)
     )
   
   p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 6)
@@ -213,10 +227,80 @@ rainfall <- function(){
   
   rainfall_out<-paste("rainfall.pdf")
   cat("Writing file", rainfall_out, "\n")
-  ggsave(paste("plots/", rainfall_out, sep=""), width = 20, height = 10)
+  ggsave(paste("plots/", rainfall_out, sep=""), width = 20, height = 5)
   
   p
 }
+
+
+
+#' samplesPlot
+#'
+#' Plot the snv distribution for each sample
+#' @import ggplot2
+#' @param count Output total counts instead of frequency if set [Default no] 
+#' @keywords spectrum
+#' @export
+
+samplesPlot <- function(count=NA){
+  snv_data<-getData()
+  
+  mut_class<-c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
+  
+  p<-ggplot(snv_data)
+  
+  if(is.na(count)){
+    p<-p + geom_bar(aes(x = grouped_trans, y = (..count..)/sum(..count..), group = sample, fill = sample), position="dodge",stat="count")
+    p<-p + scale_y_continuous("Relative contribution to total mutation load", expand = c(0.0, .001))
+    tag='_freq'
+  }
+  else{
+    p<-p + geom_bar(aes(x = grouped_trans, y = ..count.., group = sample, fill = sample), position="dodge",stat="count")
+    p<-p + scale_y_continuous("Count", expand = c(0.0, .001))
+    tag='_count'
+  }
+  p<-p + scale_x_discrete("Mutation class", limits=mut_class)
+  p<-p + cleanTheme() + 
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.title = element_text(size=20),
+          strip.text.x = element_text(size = 10)
+    )
+  p<-p + facet_wrap(~sample, ncol = 4, scale = "free_x" )
+  
+  samples_mut_spect<-paste("mutation_spectrum_samples", tag, ".pdf", sep = '')
+  cat("Writing file", samples_mut_spect, "\n")
+  ggsave(paste("plots/", samples_mut_spect, sep=""), width = 20, height = 10)
+  p
+}
+
+#calledSnvs
+
+calledSnvs <- function(){
+  snv_data<-getData()
+  calls<-table(snv_data$caller)
+  calls<-as.data.frame(unlist(calls))
+  calls$Var1 <- as.factor(calls$Var1)
+  
+  
+  grid.newpage()
+  draw.pairwise.venn(area1 = calls$Freq[calls$Var1 == 'mutect2'],
+                     area2 = calls$Freq[calls$Var1 == 'varscan2'],
+                     cross.area = calls$Freq[calls$Var1 == 'varscan2_mutect2'],
+                     category = c("Mutect2","Varscan2"),
+                     #lty = rep('blank', 2),
+                     lwd = rep(0.3, 2), 
+                     cex = rep(2, 3),
+                     cat.cex = rep(2, 2),
+                     fill = c("#E7B800", "#00AFBB"),
+                     alpha = rep(0.4, 2),
+                     cat.pos = c(0, 0),
+                     #cat.dist = rep(0.025, 2)
+                     ext.text = 'FALSE'
+  )
+  
+}
+
+
 
 
 #' mutSigs
@@ -345,7 +429,9 @@ sigTypes <- function(){
   p <- p + scale_x_discrete("Sample")
   p <- p + scale_y_continuous("Signature contribution", expand = c(0.01, 0.01), breaks=seq(0, 1, by=0.1))
   p <- p + cleanTheme() +
-    theme(axis.text.x = element_text(angle = 45, hjust=1))
+    theme(axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text = element_text(size=30)
+    )
   
   sigTypes<-paste("sigTypes.pdf")
   cat("Writing file", sigTypes, "\n")
@@ -381,32 +467,7 @@ sigPie <- function() {
 }
 
 
-#calledSnvs
 
-calledSnvs <- function(){
-  snv_data<-getData()
-  calls<-table(snv_data$caller)
-  calls<-as.data.frame(unlist(calls))
-  as.factor(calls$Var1)
-  
-  grid.newpage()
-  draw.pairwise.venn(area1 = calls$Freq[calls$Var1 == 'mutect2'],
-                     area2 = calls$Freq[calls$Var1 == 'varscan2'],
-                     cross.area = calls$Freq[calls$Var1 == 'varscan2_mutect2'],
-                     category = c("Mutect2","Varscan2"),
-                     lty = rep("blank", 2),
-                     fill = c("light blue", "light green"),
-                     alpha = rep(0.5, 2),
-                     cat.pos = c(0, 0),
-                     cat.dist = rep(0.025, 2),
-                     scaled='FALSE'
-                     )
-  
-  draw.pairwise.venn(22, 20, 11, category = c("Dog People", "Cat People"), lty = rep("blank", 
-                                                                                     2), fill = c("light blue", "yellow"), alpha = rep(0.5, 2), cat.pos = c(0, 
-                                                                                                                                                          0), cat.dist = rep(0.025, 2))
-  
-}
 
 
 #' mutSpectrum
@@ -457,7 +518,7 @@ mutSpectrum <- function(){
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export 
 
-featureEnrichment <- function(features='data/genomic_features.txt', genome_length=118274340){
+featureEnrichment <- function(features='data/genomic_features.txt', genome_length=118274340, print=NA){
   genome_features<-read.delim(features, header = T)
   snv_data<-getData()
   mutCount<-nrow(snv_data)
@@ -502,7 +563,21 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   featuresFC<-as.data.frame(enriched)
   # Sort by FC value
   featuresFC<-arrange(featuresFC,desc(as.integer(fc)))
-  return(featuresFC)
+  
+  if(!is.na(print)){
+    first.step <- lapply(featuresFC, unlist) 
+    second.step <- as.data.frame(first.step, stringsAsFactors = F)
+    
+    ggtexttable(second.step, rows = NULL, theme = ttheme("mBlue"))
+    
+    feat_enrichment_table <- paste("feature_enrichment_table.pdf")
+    cat("Writing to file: ", 'plots/', feat_enrichment_table, sep = '')
+    
+    ggsave(paste("plots/", feat_enrichment_table, sep=""), width = 5, height = (nrow(featuresFC)/3))
+    
+  }
+  
+  else{ return(featuresFC) }
 }
 
 
@@ -557,15 +632,31 @@ featureEnrichmentPlot <- function() {
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export 
 
-geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_length=118274340, print=NA){
-  gene_lengths<-read.delim(gene_lengths, header = T)
+geneEnrichment <- function(gene_lengths_in="data/gene_lengths.txt", n=7, genome_length=118274340, print=NA){
+  gene_lengths<-read.delim(gene_lengths_in, header = T)
   snv_data<-getData()
   snv_data<-filter(snv_data, gene != "intergenic")
+  
+  gene_lengths<-filter(gene_lengths, length > 1000)
+  gene_lengths<-droplevels(gene_lengths)
+  
   snv_data<-droplevels(snv_data)
+  
   snv_count<-nrow(snv_data)
   
-  hit_genes<-table(snv_data$gene)
+  
   genes<-setNames(as.list(gene_lengths$length), gene_lengths$gene)
+  
+  # Only keep relevant cols
+  gene_lengths<-gene_lengths[,c("gene","length")]
+  gene_lengths<-droplevels(gene_lengths)
+ 
+  snv_data<-join(gene_lengths, snv_data, 'gene', type = 'left')
+  
+  snv_data$fpkm <- ifelse(snv_data$fpkm=='NULL' | snv_data$fpkm=='NA' | is.na(snv_data$fpkm), 0, snv_data$fpkm)
+  snv_data$observed <- ifelse(is.numeric(snv_data$observed), snv_data$observed, 0)
+ 
+  hit_genes<-table(factor(snv_data$gene, levels = levels(snv_data$gene) ))
   expression<-setNames(as.list(snv_data$fpkm), snv_data$gene)
   
   fun <- function(g) {
@@ -577,8 +668,7 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_len
     
     # observed/expected 
     fc<-hit_genes[[g]]/gene_expect
-    log2FC = round(log2(fc),digits=1)
-    fc<-round(fc,digits=1)
+    log2FC = log2(fc)
     
     gene_expect<-round(gene_expect,digits=3)
     list(gene = g, length = genes[[g]], fpkm = expression[[g]],  observed = hit_genes[g], expected = gene_expect, fc = fc, log2FC = log2FC)
@@ -590,36 +680,24 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_len
   # Filter for genes with few observations
   genesFC<-filter(genesFC, observed >= n)
   genesFC<-droplevels(genesFC)
+  genesFC$expected<-round(as.numeric(genesFC$expected),digits=3)
+  genesFC$fc<-round(as.numeric(genesFC$fc), 2)
+  genesFC$log2FC<-round(as.numeric(genesFC$log2FC), 2)
   # Sort by FC value
-  genesFC<-arrange(genesFC,desc(as.numeric(fc)))
- 
+  genesFC<-arrange(genesFC,desc(fc))
+
+  
   
   if(!is.na(print)){
     cat("printing")
     first.step <- lapply(genesFC, unlist) 
     second.step <- as.data.frame(first.step, stringsAsFactors = F)
-    #arrange(second.step,desc(as.integer(log2FC)))
+    arrange(second.step,desc(as.integer(log2FC)))
     
-    ggtexttable(second.step, rows = NULL, theme = ttheme("mBlue"))
-    
-    
-    # text <- paste("Genes enriched in SNV dataset",
-    #               "only showing genes with at least", n, "observations", sep = " ")
-    # text.p <- ggparagraph(text = text, size = 11, color = "black")
-    # # Arrange the plots on the same page
-    # ggarrange(text.p, ptable,
-    #           ncol = 1, nrow = 2,
-    #           align=("h")
-    #           ) %>%
+    ggtexttable(second.step, rows = NULL, theme = ttheme("mOrange"))
     
     gene_enrichment_table <- paste("gene_enrichment_table.pdf")
-    ggsave(paste("plots/", gene_enrichment_table, sep=""), width = 5, height = (nrow(genesFC)/3))
-    
-    #ggexport(filename = "plots/gene_enrichment_table.pdf")
-    # ggarrange(text.p, ptable,
-    #           ncol = 1, nrow = 2,
-    #           align="h"
-    # )
+    ggsave(paste("plots/", gene_enrichment_table, sep=""), width = 5.2, height = (nrow(genesFC)/3))
   }
   
   else{ return(genesFC) }
@@ -629,14 +707,16 @@ geneEnrichment <- function(gene_lengths="data/gene_lengths.txt", n=3, genome_len
 geneEnrichmentPlot <- function(n=0) {
   gene_enrichment<-geneEnrichment(n=n)
   
-  gene_enrichment$Log2FC <- log2(as.numeric(gene_enrichment$fc))
+  #gene_enrichment<-filter(gene_enrichment, fpkm > 0)
   
   gene_enrichment$gene <- as.character(gene_enrichment$gene)
   gene_enrichment$fc <- as.numeric(gene_enrichment$fc)
+  gene_enrichment$log2FC <- as.numeric(gene_enrichment$log2FC)
   
   gene_enrichment <- transform(gene_enrichment, gene = reorder(gene, -fc))
   
-  gene_enrichment$test <- ifelse(gene_enrichment$Log2FC>=0, "enriched", "depleted")
+  gene_enrichment$test <- ifelse(gene_enrichment$log2FC>=0, "enriched", "depleted")
+  
   
   gene_enrichment<-droplevels(gene_enrichment)
   
@@ -644,19 +724,22 @@ geneEnrichmentPlot <- function(n=0) {
   highlightedGene <- droplevels(highlightedGene)
   
   p<-ggplot(gene_enrichment)
-  p<-p + geom_bar(aes(gene, Log2FC, fill = as.character(test)), stat="identity")
-  p<-p + geom_bar(data=highlightedGene, aes(gene, Log2FC, fill="red"), colour="black", stat="identity")
+  p<-p + geom_bar(aes(gene, log2FC, fill = as.character(test)), stat="identity")
+  #p<-p + geom_bar(data=highlightedGene, aes(gene, log2FC, fill="red"), colour="black", stat="identity")
   p<-p + guides(fill=FALSE)
+  p<-p + scale_x_discrete("Gene")
   p<-p + cleanTheme() +
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
           axis.text.x = element_text(angle = 90, hjust=1),
           axis.text = element_text(size=7)
     )
-
+  #p<-p + coord_flip()
+  #p<-p + scale_y_reverse()
+  
   gene_enrichment_plot <- paste("gene_enrichment.pdf")
   cat("Writing file", gene_enrichment_plot, "\n")
-  ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 5, height = 10)
-  p
+  ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 25, height = 5)
+  
   
 }
 
@@ -671,66 +754,88 @@ geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   gene_enrichment$fc<-as.numeric(gene_enrichment$fc)
   gene_enrichment$observed<-as.numeric(gene_enrichment$observed)
   
-  gene_enrichment<-droplevels(gene_enrichment)
-  gene_enrichment$col<-as.factor(ifelse(gene_enrichment$log2FC > 0, 'enrichment', 'depletion'))
   
   #  Var in x explained by Y
   # par(mfrow=c(2,2))
   # plot(enrichment_lm)
   
+  # Set new col 'col' to indicate enrichment/depletion
+  gene_enrichment$col<-as.factor(ifelse(gene_enrichment$log2FC > 0, 'enrichment', 'depletion'))
+  
+  # Only keep relevant cols
   gene_enrichment<-gene_enrichment[,c("gene","fpkm","observed",'expected','fc', 'log2FC', 'col')]
   gene_enrichment<-droplevels(gene_enrichment)
   
+  # Join both df on 'gene'
   gene_lengths_df<-join(as.data.frame(gene_lengths), gene_enrichment, 'gene', type = "left")
   
+  # Clean up null/na vals
   gene_lengths_df$fpkm <- ifelse(gene_lengths_df$fpkm=='NULL' | gene_lengths_df$fpkm=='NA' | is.na(gene_lengths_df$fpkm), 0, gene_lengths_df$fpkm)
   gene_lengths_df$level <- ifelse(gene_lengths_df$fpkm == 0 , 'not_expressed', 'expressed')
   gene_lengths_df$observed <- ifelse(gene_lengths_df$observed == 'NULL' | gene_lengths_df$observed == 'NA', 0, gene_lengths_df$observed)
+  gene_lengths_df$level<-as.factor(gene_lengths_df$level)
   
+  # Allow colouring of expressed/enriched/depleted 
   gene_lengths_df$col <- ifelse(is.na(gene_lengths_df$col), 'NA', as.character(gene_lengths_df$col))
-  
   gene_lengths_df$col <- ifelse(gene_lengths_df$fpkm > 0, 'expressed', gene_lengths_df$col)
   
+  # New col log10 length
   gene_lengths_df$log10length<-log10(gene_lengths$length)
   
-  enrichment_lm <- lm(observed ~ log10length, data = gene_lengths_df)
-  enrichment_exp <- lm(observed ~ exp(log10length), data = gene_lengths_df)
+  gene_lengths_df<-filter(gene_lengths_df, length >= 1000, length < 200000)
+  gene_lengths_df<-droplevels(gene_lengths_df)
+  # 
+  # Linear model (predicter ~ predictor)
+  enrichment_lm <- lm(observed ~ length, data = gene_lengths_df)
+  # Exponential model
+  enrichment_exp <- lm(observed^2 ~ length, data = gene_lengths_df)
   
   # plot( observed ~ length, data = gene_enrichment)
   lmRsq<-round(summary(enrichment_lm)$adj.r.squared, 2)
   expRsq<-round(summary(enrichment_exp)$adj.r.squared, 2)
   
+  summary(pois <- glm(observed ~ length, family="poisson", data=gene_lengths_df))
   
   gene_lengths_p<-filter(gene_lengths_df, col != 'NA') 
   
- # gene_lengths_p<-filter(gene_lengths_p, length >= 1000)
-  
-  
   p <- ggplot(gene_lengths_p, aes(log10length, observed))
-  p <- p + geom_jitter(aes(size=log2FC, colour = col, alpha = 0.8))
+  p <- p + geom_jitter(aes(size=abs(log2FC), colour = col, alpha = 0.8))
   p <- p + scale_color_manual(values=c("#F8766D", "#00AFBB", "#E7B800"))
-  p <- p + scale_x_continuous("Log10 Kb", limits=c(1, max(gene_lengths_p$log10length)))
+  p <- p + scale_x_continuous("Log10 Kb", limits=c(3, max(gene_lengths_p$log10length)))
   p <- p + scale_y_continuous("Count", limits=c(0,max(gene_lengths_p$observed)))
-  p <- p + scale_size_continuous(range=c(min(gene_lengths_p$log2FC),max(gene_lengths_p$log2FC)))
+  p <- p + scale_size_continuous(range=c(0, abs(max(gene_lengths_p$log2FC))))
 
-  p <- p + annotate(x = 4, y = 20, geom="text", label = paste('Lin:R^2:', lmRsq),size = 7,parse = TRUE)
-  p <- p + annotate(x = 4, y = 18, geom="text", label = paste('Exp:R^2:', expRsq),size = 7,parse = TRUE)
+  p <- p + annotate(x = 3.5, y = 20, geom="text", label = paste('Lin:R^2:', lmRsq), size = 7,parse = TRUE)
+  #p <- p + annotate(x = 30000, y = 18, geom="text", label = paste('Exp:R^2:', expRsq), size = 7,parse = TRUE)
   
-  p <- p + geom_smooth(method=lm, show.legend = FALSE)
-  p <- p + geom_smooth(method=lm, formula = y ~ exp(x), colour = "purple", show.legend = FALSE)
+  # Default model is formula = y ~ x
+  # How much variation in X is explained by Y
+  # How muc var in length is explained by observation
   
-  
+  p <- p + geom_smooth(method=lm, show.legend = FALSE) # linear
+  #p <- p + geom_smooth(method=lm, formula = y ~ poly(x, 2), colour = "orange", show.legend = FALSE) #Quadratic
+  #p <- p + geom_smooth(method=glm, method.args = list(family = "poisson"), colour = "red", se=T)
+  p <- p + geom_smooth(colour="orange") # GAM
   p <- p + cleanTheme()
+  p <- p + geom_rug(aes(colour=col,alpha=.8),sides="b")
+  
   p <- p + guides(alpha = FALSE)
   
   colours<-c( "#E7B800", "#00AFBB")
-  p2<-ggplot(gene_lengths_df, aes(log10length, alpha = 0.5, fill=level))
-  p2<-p2 + geom_density()
+  p2<-ggplot(gene_lengths_df)
+  p2<-p2 + geom_density(aes(log10length, fill=level),alpha = 0.4)
   p2 <- p2 + cleanTheme()
-  p2 <- p2 + scale_x_continuous("Log10 Kb", limits=c(1, max(gene_lengths_df$log10length)))
+  p2 <- p2 + scale_x_continuous("Log10 Kb", limits=c(3, max(gene_lengths_df$log10length)))
   p2 <- p2 + guides(alpha = FALSE)
-  p2 <- p2 + geom_rug(aes(colour=level))
-  p2<-p2 + scale_fill_manual(values=colours)
+  #p2 <- p2 + geom_rug(inherit.aes = F, aes(log10length,colour=level),alpha=0.2, sides = "tb")
+  
+  
+  p2 <- p2 + geom_rug(data=subset(gene_lengths_df,level=="expressed"), aes(log10length,colour=level),alpha=0.7, sides = "b")
+  p2 <- p2 + geom_rug(data=subset(gene_lengths_df,level=="not_expressed"), aes(log10length,colour=level),alpha=0.2, sides = "t")
+  
+  
+  p2 <- p2 + scale_fill_manual(values=colours)
+  p2 <- p2 + scale_colour_manual(values=colours)
   
   # p<-ggscatter(gene_lengths_p, x = "log10length", y = "observed",
   #           color = "col", size = "log2FC"
@@ -742,14 +847,15 @@ geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   #           palette = c("#00AFBB", "#E7B800")
   #           )
   # 
-  ggarrange(p,p2, 
+  combined_plots <- ggarrange(p, p2, 
             labels = c("A", "B"),
             ncol = 1, nrow = 2)
   
-  gene_len<-paste("gene_lengths_count_model.pdf")
+  gene_len<-paste("gene_lengths_count_model_log10.pdf")
   cat("Writing file", gene_len, "\n")
-  ggsave(paste("plots/", gene_len, sep=""), width = 20, height = 10)
+  ggsave(paste("plots/", gene_len, sep=""), width = 10, height = 10)
   
+  combined_plots
 }
 
 #' snvinGene
@@ -785,15 +891,16 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   p<-p + guides(size = FALSE, sample = FALSE)
   p<-p + cleanTheme() +
     theme(axis.title.y=element_blank(),
-          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted")
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.y = element_text(size = 30)
     )
   p<-p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(round(wStart/1000000, digits = 2),round(wEnd/1000000, digits = 2),by=0.05), limits=c(wStart/1000000, wEnd/1000000))
-  p<-p + annotate("rect", xmin=region$start/1000000, xmax=region$end/1000000, ymin=0, ymax=0.1, alpha=.2, fill="skyblue")
+  p<-p + annotate("rect", xmin=region$start/1000000, xmax=region$end/1000000, ymin=0, ymax=0.3, alpha=.2, fill="skyblue")
   p<-p + geom_vline(xintercept = wTss/1000000, colour="red", alpha=.7, linetype="solid")
   
   p<-p + geom_segment(aes(x = wTss/1000000, y = 0, xend= wTss/1000000, yend = 0.1), colour="red")
   middle<-((wEnd/1000000+wStart/1000000)/2)
-  p <- p + annotate("text", x = middle, y = 0.05, label=gene2plot, size=6)
+  p <- p + annotate("text", x = middle, y = 0.15, label=gene2plot, size=6)
   p<-p + ggtitle(paste("Chromosome:", wChrom))
   
   p
@@ -860,46 +967,6 @@ geneHit <- function(n=10){
 
 
 
-#' snvStats
-#'
-#' Calculate some basic stats for snv snv_data
-#' @import dplyr
-#' @keywords stats
-#' @export
-
-snvStats <- function(){
-  snv_data<-getData()
-  cat("sample", "snvs", sep='\t', "\n")
-  rank<-sort(table(snv_data$sample), decreasing = TRUE)
-  rank<-as.array(rank)
-  
-  total=0
-  
-  for (i in 1:nrow(rank)){
-    cat(names(rank[i]), rank[i], sep='\t', "\n")
-    total<-total + rank[i]
-    scores[i]<-rank[i]
-  }
-  cat('--------------', '\n')
-  scores<-unlist(scores)
-  
-  mean<-as.integer(mean(scores))
-  med<-as.integer(median(scores))
-  
-  cat('total', total, sep='\t', '\n')
-  cat('samples', nrow(rank), sep='\t', '\n')
-  
-  cat('--------------', '\n')
-  cat('mean', mean, sep='\t', '\n')
-  cat('median', med, sep='\t', '\n')
-  
-  cat('\n')
-  all_ts<-nrow(filter(snv_data, trans == "A>G" | trans == "C>T" | trans == "G>A" | trans == "T>C"))
-  all_tv<-nrow(filter(snv_data, trans != "A>G" & trans != "C>T" & trans != "G>A" & trans != "T>C"))
-  ts_tv<-round((all_ts/all_tv), digits=2)
-  cat("ts/tv =", ts_tv)
-}
-
 #' triFreq
 #'
 #' This function counts the number of times each triunucleotide is found in a supplied genome
@@ -950,18 +1017,105 @@ triFreq <- function(genome=NA, count=NA){
 #' @keywords tss
 #' @export
 
-tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
+# tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
+#   tss_locations<-read.delim(tss_pos, header = T)
+#   tss_locations$tss<-as.integer(tss_locations$tss)
+#   snv_data<-getData()
+#   if(!is.na(sim)){
+#     simrep<-nrow(snv_data)
+#     cat("Generating simulated snv_data for", simrep, "SNVs", "\n")
+#     snv_data<-snvSim(N=simrep, write=print)
+#     colnames(snv_data)<-c("chrom", "pos", "v3", "v4", "v5")
+#     snv_data<-filter(snv_data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
+#     snv_data<-droplevels(snv_data)
+#   }
+#   
+#   fun2 <- function(p) {
+#     index<-which.min(abs(tss_df$tss - p))
+#     closestTss<-tss_df$tss[index]
+#     chrom<-as.character(tss_df$chrom[index])
+#     gene<-as.character(tss_df$gene[index])
+#     dist<-(p-closestTss)
+#     list(p, closestTss, dist, chrom, gene)
+#   }
+#   
+#   l <- list()
+#   
+#   for (c in levels(snv_data$chrom)){
+#     df<-filter(snv_data, chrom == c)
+#     tss_df<-filter(tss_locations, chrom == c)
+#     dist2tss<-lapply(df$pos, fun2)
+#     dist2tss<-do.call(rbind, dist2tss)
+#     dist2tss<-as.data.frame(dist2tss)
+#     
+#     colnames(dist2tss)=c("snp", "closest_tss", "min_dist", "chrom", "closest_gene")
+#     dist2tss$min_dist<-as.numeric(dist2tss$min_dist)
+#     l[[c]] <- dist2tss
+#   }
+#   
+#   dist2tss<-do.call(rbind, l)
+#   dist2tss<-as.data.frame(dist2tss)
+#   dist2tss$chrom<-as.character(dist2tss$chrom)
+#   
+#   dist2tss<-arrange(dist2tss,(abs(min_dist)))
+#   
+#   # Removes chroms with fewer than 20 observations
+#   snvCount <- table(dist2tss$chrom)
+#   dist2tss <- subset(dist2tss, chrom %in% names(snvCount[snvCount > 25]))
+#   dist2tss <- filter(dist2tss, chrom != 'Y')
+#   
+#   p<-ggplot(dist2tss)
+#   p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
+#   p<-p + scale_x_continuous("Distance to TSS (Kb)",
+#                             limits=c(-100000, 100000),
+#                             breaks=c( -10000, -1000, 0, 1000, 10000 ),
+#                             expand = c(.0005, .0005),
+#                             labels=c("-10", "-1", 0, "1", "10") )
+#   p<-p + scale_y_continuous("Density", expand = c(0, 0))
+#   p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+#   p<-p + cleanTheme()
+#   #p<-p + facet_wrap(~chrom, ncol = 2, scales = "free_y")
+#   p
+#   
+#   # p<-ggplot(dist2tss)
+#   # p<-p + geom_histogram(aes(min_dist, fill = chrom), alpha = 0.6, bins=500)
+#   # p<-p + scale_x_continuous("Distance to TSS", limits=c(-1000, 1000))
+#   # p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+#   # p
+#   
+# }
+
+
+
+tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0,return=0){
   tss_locations<-read.delim(tss_pos, header = T)
   tss_locations$tss<-as.integer(tss_locations$tss)
-  snv_data<-getData()
-  if(!is.na(sim)){
-    simrep<-nrow(snv_data)
-    cat("Generating simulated snv_data for", simrep, "SNVs", "\n")
-    snv_data<-snvSim(N=simrep, write=print)
+  
+  if(is.na(sim)){
+    snv_data<-getData()
+  }
+  
+  else{
+    cat("Generating simulated snv_data\n")
+    hit_count<-nrow(getData())
+    snv_data<-snvSim(N=hit_count, write=print)
     colnames(snv_data)<-c("chrom", "pos", "v3", "v4", "v5")
     snv_data<-filter(snv_data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
     snv_data<-droplevels(snv_data)
   }
+  
+  
+  
+  # Will throw error if SVs don't exist on a chrom...
+  
+  # Removes chroms with fewer than 20 observations
+  svCount <- table(snv_data$chrom)
+  snv_data <- subset(snv_data, chrom %in% names(svCount[svCount > 30]))
+  snv_data<-droplevels(snv_data)
+  
+  tss_locations <- subset(tss_locations, chrom %in% levels(snv_data$chrom))
+  tss_locations<-droplevels(tss_locations)  
+  
   
   fun2 <- function(p) {
     index<-which.min(abs(tss_df$tss - p))
@@ -981,7 +1135,7 @@ tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
     dist2tss<-do.call(rbind, dist2tss)
     dist2tss<-as.data.frame(dist2tss)
     
-    colnames(dist2tss)=c("snp", "closest_tss", "min_dist", "chrom", "closest_gene")
+    colnames(dist2tss)=c("bp", "closest_tss", "min_dist", "chrom", "closest_gene")
     dist2tss$min_dist<-as.numeric(dist2tss$min_dist)
     l[[c]] <- dist2tss
   }
@@ -993,28 +1147,95 @@ tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
   dist2tss<-arrange(dist2tss,(abs(min_dist)))
   
   # Removes chroms with fewer than 20 observations
-  snvCount <- table(dist2tss$chrom)
-  dist2tss <- subset(dist2tss, chrom %in% names(snvCount[snvCount > 25]))
-  dist2tss <- filter(dist2tss, chrom != 'Y')
+  # svCount <- table(dist2tss$chrom)
+  # dist2tss <- subset(dist2tss, chrom %in% names(svCount[svCount > 10]))
   
-  p<-ggplot(dist2tss)
-  p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
+  if(return==1){
+    return(dist2tss)
+  }
+  else{
+    p<-ggplot(dist2tss)
+    p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
+    p<-p + scale_x_continuous("Distance to TSS (Kb)",
+                              limits=c(-10000, 10000),
+                              breaks=c(-10000,-1000, 1000, 10000),
+                              expand = c(.0005, .0005),
+                              labels=c("-10", "-1", "1", "10") )
+    p<-p + scale_y_continuous("Density")
+    p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+    #p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 5)
+    p <- p + geom_rug(aes(min_dist, colour=chrom))
+    p<-p + cleanTheme() +
+      theme(strip.text = element_text(size=20),
+            legend.position="top")
+    p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+    
+    if(is.na(sim)){
+      tssDistout<-paste("bpTSSdist.pdf")
+    }
+    else{
+      tssDistout<-paste("bpTSSdist_sim.pdf")
+    }
+    cat("Writing file", tssDistout, "\n")
+    ggsave(paste("plots/", tssDistout, sep=""), width = 20, height = 10)
+    
+    p
+  }
+}
+
+
+tssDistOverlay <- function(){
+  real_data<-tssDist(return=1)
+  real_data$Source<-"Real"
+  sim_data<-bpTssDist(sim=1, return=1)
+  sim_data$Source<-"Sim"
+  
+  sim_data<-filter(sim_data, chrom != "Y", chrom != 4)
+  sim_data<-droplevels(sim_data)
+  real_data<-filter(real_data, chrom != "Y", chrom != 4)
+  real_data<-droplevels(real_data)
+  
+  
+  colours<-c( "#E7B800", "#00AFBB")
+  
+  
+  p<-ggplot()
+  p<-p + geom_density(data=real_data,aes(min_dist, fill = Source), alpha = 0.4)
+  p<-p + geom_density(data=sim_data,aes(min_dist, fill = Source), alpha = 0.4)
+  p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+  
   p<-p + scale_x_continuous("Distance to TSS (Kb)",
                             limits=c(-100000, 100000),
-                            breaks=c( -10000, -1000, 0, 1000, 10000 ),
+                            breaks=c(-100000,-10000,-1000, 1000, 10000, 100000),
                             expand = c(.0005, .0005),
-                            labels=c("-10", "-1", 0, "1", "10") )
-  p<-p + scale_y_continuous("Density", expand = c(0, 0))
+                            labels=c("-100", "-10", "-1", "1", "10", "100") )
+  p<-p + scale_y_continuous("Density")
   p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
-  p<-p + cleanTheme()
-  #p<-p + facet_wrap(~chrom, ncol = 2, scales = "free_y")
+  #p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 5)
+  
+  p <- p + geom_rug(data=real_data,aes(min_dist, colour=Source),sides="b")
+  p <- p + geom_rug(data=sim_data,aes(min_dist, colour=Source),sides="t")
+  
+  
+  p <- p + scale_fill_manual(values=colours)
+  p <- p + scale_colour_manual(values=colours)
+  
+  p<-p + cleanTheme() +
+    theme(strip.text = element_text(size=20),
+          legend.position="top")
+  
+  p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+  
+  
+  tssDistout<-paste("bpTSSdist_overlay.pdf")
+  
+  cat("Writing file", tssDistout, "\n")
+  ggsave(paste("plots/", tssDistout, sep=""), width = 20, height = 10)
+  
+  
+  
   p
   
-  # p<-ggplot(dist2tss)
-  # p<-p + geom_histogram(aes(min_dist, fill = chrom), alpha = 0.6, bins=500)
-  # p<-p + scale_x_continuous("Distance to TSS", limits=c(-1000, 1000))
-  # p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
-  # p
   
 }
 
@@ -1142,43 +1363,47 @@ svDist <- function(svs="data/all_bps_new.txt",sim=NA, print=0){
 
 
 
-
-#' samplesPlot
+#' chromDist
 #'
-#' Plot the snv distribution for each sample
+#' Plot genome-wide snv distribution 
 #' @import ggplot2
-#' @param count Output total counts instead of frequency if set [Default no] 
-#' @keywords spectrum
+#' @keywords distribution
 #' @export
 
-samplesPlot <- function(count=NA){
+chromDist <- function(object=NA, notch=0){
   snv_data<-getData()
+  ext<-'.pdf'
+  if(is.na(object)){
+    object<-'grouped_trans'
+    cols<-setCols(snv_data, "grouped_trans")
+  }
   
-  mut_class<-c("C>A", "C>G", "C>T", "T>A", "T>C", "T>G")
+  if(notch){
+    snv_data<-exclude_notch()
+    ext<-'_excl.N.pdf'
+  }
+  
+  cat("Plotting snvs by", object, "\n")
   
   p<-ggplot(snv_data)
-  
-  if(is.na(count)){
-    p<-p + geom_bar(aes(x = grouped_trans, y = (..count..)/sum(..count..), group = sample, fill = sample), position="dodge",stat="count")
-    p<-p + scale_y_continuous("Relative contribution to total mutation load", expand = c(0.0, .001))
-    tag='_freq'
-  }
-  else{
-    p<-p + geom_bar(aes(x = grouped_trans, y = ..count.., group = sample, fill = sample), position="dodge",stat="count")
-    p<-p + scale_y_continuous("Count", expand = c(0.0, .001))
-    tag='_count'
-  }
-  p<-p + scale_x_discrete("Mutation class", limits=mut_class)
-  p<-p + cleanTheme() + 
-    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+  p<-p + geom_histogram(aes(pos/1000000, fill = get(object)), binwidth=0.1, alpha = 0.8)  
+  p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 2)
+  p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33),expand = c(0.01, 0.01))
+  p<-p + scale_y_continuous("Number of snvs", expand = c(0.01, 0.01))
+  p<-p + cleanTheme() +
+    theme(axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text = element_text(size=12),
           axis.title = element_text(size=20),
-          strip.text.x = element_text(size = 10)
+          strip.text.x = element_text(size = 15)
     )
-  p<-p + facet_wrap(~sample, ncol = 4, scale = "free_x" )
   
-  samples_mut_spect<-paste("mutation_spectrum_samples", tag, ".pdf", sep = '')
-  cat("Writing file", samples_mut_spect, "\n")
-  ggsave(paste("plots/", samples_mut_spect, sep=""), width = 20, height = 10)
+  if (object == 'grouped_trans'){
+    p<-p + cols
+  }  
+  chrom_outfile<-paste("snv_dist_genome_by_", object, ext, sep = "")
+  cat("Writing file", chrom_outfile, "\n")
+  ggsave(paste("plots/", chrom_outfile, sep=""), width = 20, height = 10)
+  
   p
 }
 
