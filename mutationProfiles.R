@@ -65,10 +65,10 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   snv_data<-mutate(snv_data, caller = ifelse(dups == "TRUE", 'varscan2_mutect2' , as.character(caller)))
   
   # Filter for calls made by both V and M
-  # snv_data<-filter(snv_data, caller == 'varscan2_mutect2')
+  #snv_data<-filter(snv_data, caller == 'varscan2_mutect2')
   
   # Filter for old/new data
-  #snv_data <- filter(snv_data, grepl("^A|H", sample))
+  #snv_data <- filter(snv_data, !grepl("^A|H", sample))
   
   snv_data<-droplevels(snv_data)
   dir.create(file.path("plots"), showWarnings = FALSE)
@@ -483,20 +483,21 @@ mutSpectrum <- function(){
   
   p<-ggplot(snv_data)
   p<-p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), position="dodge",stat="count")
-  p<-p + scale_y_continuous("Relative contribution to mutation load", expand = c(0.0, .0005))
+  p<-p + scale_y_continuous("Contribution to mutation load", limits = c(0, 0.05), breaks=c(0, 0.025, 0.05), labels=c("0", "2.5%", "5%"), expand = c(0.0, .0005))
   p<-p + scale_x_discrete("Genomic context", expand = c(.005, .005))
   p<-p + cleanTheme() + 
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
-          axis.text.x = element_text(angle = 45, hjust=1),
+          axis.text.x = element_text(angle = 90, hjust=1),
+          axis.text.y = element_text(size=15),
           axis.title = element_text(size=20),
           strip.text.x = element_text(size = 15)
     )
-  p<-p + labs(fill="Mutation class")
-  p<-p + facet_wrap(~grouped_trans, ncol = 3, scale = "free_x" )
-  
+  # p<-p + labs(fill="Mutation class")
+  p<-p + facet_wrap(~grouped_trans, ncol = 6, scale = "free_x" )
+  p<-p + guides(grouped_trans = FALSE)
   mut_spectrum<-paste("mutation_spectrum.pdf")
   cat("Writing file", mut_spectrum, "\n")
-  ggsave(paste("plots/", mut_spectrum, sep=""), width = 20, height = 10)
+  ggsave(paste("plots/", mut_spectrum, sep=""), width = 20, height = 7.5)
   p
 }
 
@@ -538,7 +539,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
     
     # observed/expected 
     fc<-classCount[[f]]/featureExpect
-    fc<-round(fc,digits=1)
+    Log2FC<-log2(fc)
     featureExpect<-round(featureExpect,digits=3)
     
     # Binomial test
@@ -554,7 +555,7 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
       sig_val<-'F'
       if(stat$p.value <= 0.05){ sig_val<-'T'}
       p_val<-format.pval(stat$p.value, digits = 3, eps=0.0001)
-      list(feature = f, observed = classCount[f], expected = featureExpect, fc = fc, test = test, sig = sig_val, p_val = p_val)
+      list(feature = f, observed = classCount[f], expected = featureExpect, Log2FC = Log2FC, test = test, sig = sig_val, p_val = p_val)
     }
   }
   
@@ -562,18 +563,19 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   enriched<-do.call(rbind, enriched)
   featuresFC<-as.data.frame(enriched)
   # Sort by FC value
-  featuresFC<-arrange(featuresFC,desc(as.integer(fc)))
+  featuresFC<-arrange(featuresFC,desc(as.numeric(Log2FC)))
+  featuresFC$Log2FC<-round(as.numeric(featuresFC$Log2FC), 1)
   
   if(!is.na(print)){
     first.step <- lapply(featuresFC, unlist) 
     second.step <- as.data.frame(first.step, stringsAsFactors = F)
     
-    ggtexttable(second.step, rows = NULL, theme = ttheme("mBlue"))
+    ggtexttable(second.step, rows = NULL, theme = ttheme("mOrange"))
     
     feat_enrichment_table <- paste("feature_enrichment_table.pdf")
     cat("Writing to file: ", 'plots/', feat_enrichment_table, sep = '')
     
-    ggsave(paste("plots/", feat_enrichment_table, sep=""), width = 5, height = (nrow(featuresFC)/3))
+    ggsave(paste("plots/", feat_enrichment_table, sep=""), width = 5.5, height = (nrow(featuresFC)/3))
     
   }
   
@@ -584,12 +586,10 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
 featureEnrichmentPlot <- function() {
   feature_enrichment<-featureEnrichment()
   
-  feature_enrichment$Log2FC <- log2(as.numeric(feature_enrichment$fc))
-  
   feature_enrichment$feature <- as.character(feature_enrichment$feature)
-  feature_enrichment$fc <- as.numeric(feature_enrichment$fc)
+  feature_enrichment$Log2FC <- as.numeric(feature_enrichment$Log2FC)
   
-  feature_enrichment <- transform(feature_enrichment, feature = reorder(feature, -fc))
+  feature_enrichment <- transform(feature_enrichment, feature = reorder(feature, -Log2FC))
   
   feature_enrichment <- filter(feature_enrichment, observed >= 5)
   
@@ -788,13 +788,13 @@ geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   # Linear model (predicter ~ predictor)
   enrichment_lm <- lm(observed ~ length, data = gene_lengths_df)
   # Exponential model
-  enrichment_exp <- lm(observed^2 ~ length, data = gene_lengths_df)
+  enrichment_exp <- lm(log(observed) ~ length, data = gene_lengths_df)
   
   # plot( observed ~ length, data = gene_enrichment)
   lmRsq<-round(summary(enrichment_lm)$adj.r.squared, 2)
   expRsq<-round(summary(enrichment_exp)$adj.r.squared, 2)
   
-  summary(pois <- glm(observed ~ length, family="poisson", data=gene_lengths_df))
+  #summary(pois <- glm(observed ~ length, family="poisson", data=gene_lengths_df))
   
   gene_lengths_p<-filter(gene_lengths_df, col != 'NA') 
   
@@ -806,16 +806,16 @@ geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   p <- p + scale_size_continuous(range=c(0, abs(max(gene_lengths_p$log2FC))))
 
   p <- p + annotate(x = 3.5, y = 20, geom="text", label = paste('Lin:R^2:', lmRsq), size = 7,parse = TRUE)
-  #p <- p + annotate(x = 30000, y = 18, geom="text", label = paste('Exp:R^2:', expRsq), size = 7,parse = TRUE)
+  p <- p + annotate(x = 3.5, y = 17, geom="text", label = paste('Exp:R^2:', expRsq), size = 7,parse = TRUE)
   
   # Default model is formula = y ~ x
   # How much variation in X is explained by Y
   # How muc var in length is explained by observation
   
   p <- p + geom_smooth(method=lm, show.legend = FALSE) # linear
-  #p <- p + geom_smooth(method=lm, formula = y ~ poly(x, 2), colour = "orange", show.legend = FALSE) #Quadratic
+  p <- p + geom_smooth(method=lm, formula = y ~ poly(x, 2), colour = "orange", show.legend = FALSE) #Quadratic
   #p <- p + geom_smooth(method=glm, method.args = list(family = "poisson"), colour = "red", se=T)
-  p <- p + geom_smooth(colour="orange") # GAM
+  #p <- p + geom_smooth(colour="orange") # GAM
   p <- p + cleanTheme()
   p <- p + geom_rug(aes(colour=col,alpha=.8),sides="b")
   
@@ -903,6 +903,10 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   p <- p + annotate("text", x = middle, y = 0.15, label=gene2plot, size=6)
   p<-p + ggtitle(paste("Chromosome:", wChrom))
   
+  hit_gene<-paste(gene2plot, "_hits.pdf", sep='')
+  cat("Writing file", hit_gene, "\n")
+  ggsave(paste("plots/", hit_gene, sep=""), width = 10, height = 10)
+  
   p
 }
 
@@ -940,8 +944,6 @@ featuresHit <- function(){
   features_outfile<-paste("hit_features_count.pdf")
   cat("Writing file", features_outfile, "\n")
   ggsave(paste("plots/", features_outfile, sep=""), width = 20, height = 10)
-  
-  
   
   p
 }
