@@ -32,24 +32,24 @@ set.seed(42)
 #' @export
 #' @return Dataframe
 
-getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/isc_genes_rnaSeq.csv'){
+getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/isc_EB_genes_rnaSeq_Maheva.csv'){
+  #expression_data='data/isc_EB_genes_rnaSeq_Maheva.csv'
   snv_data<-read.delim(infile, header = F)
   colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene", "id")
 
   # Read in tissue specific expression data
   seq_data<-read.csv(header = F, expression_data)
-  colnames(seq_data)<-c('fpkm', 'id')
+  colnames(seq_data)<-c('id', 'fpkm')
   
-  # Left might be better(...)
   snv_data <- join(snv_data,seq_data,"id", type = 'left')
   
-  snv_data$fpkm<-round(snv_data$fpkm, 1)
+  snv_data$fpkm <- ifelse(is.na(snv_data$fpkm), 0, round(as.numeric(snv_data$fpkm), 1))
   
   # Order by FPKM
   snv_data<- arrange(snv_data, desc(fpkm))
   
   # Filter for genes expressed in RNA-Seq data
-  #snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
+  snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
 
   # Filter on allele freq
   #snv_data<-filter(snv_data, is.na(a_freq))
@@ -1376,6 +1376,169 @@ svDist <- function(svs="data/all_bps_new.txt",sim=NA, print=0){
   # p
   
 }
+
+
+
+
+
+g4Dist <- function(g4_pos="data/g4_positions.txt",sim=NA, print=0,return=0){
+  g4_pos="data/g4_positions.txt"
+  g4_locations<-read.delim(g4_pos, header = T)
+  g4_locations$g4<-as.integer(g4_locations$g4)
+  
+  if(is.na(sim)){
+    snv_data<-getData()
+  }
+  
+  else{
+    cat("Generating simulated snv_data\n")
+    hit_count<-nrow(getData())
+    snv_data<-snvSim(N=hit_count, write=print)
+    colnames(snv_data)<-c("chrom", "pos", "v3", "v4", "v5")
+    snv_data<-filter(snv_data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
+    snv_data<-droplevels(snv_data)
+  }
+  
+  
+  
+  # Will throw error if SVs don't exist on a chrom...
+  
+  # Removes chroms with fewer than 20 observations
+  svCount <- table(snv_data$chrom)
+  snv_data <- subset(snv_data, chrom %in% names(svCount[svCount > 30]))
+  snv_data<-droplevels(snv_data)
+  
+  g4_locations <- subset(g4_locations, chrom %in% levels(snv_data$chrom))
+  g4_locations<-droplevels(g4_locations)  
+  
+  
+  fun2 <- function(p) {
+    index<-which.min(abs(g4_df$g4 - p))
+    closestTss<-g4_df$g4[index]
+    chrom<-as.character(g4_df$chrom[index])
+    gene<-as.character(g4_df$gene[index])
+    dist<-(p-closestTss)
+    list(p, closestTss, dist, chrom, gene)
+  }
+  
+  l <- list()
+  
+  for (c in levels(snv_data$chrom)){
+    df<-filter(snv_data, chrom == c)
+    g4_df<-filter(g4_locations, chrom == c)
+    dist2g4<-lapply(df$pos, fun2)
+    dist2g4<-do.call(rbind, dist2g4)
+    dist2g4<-as.data.frame(dist2g4)
+    
+    colnames(dist2g4)=c("bp", "closest_g4", "min_dist", "chrom", "closest_gene")
+    dist2g4$min_dist<-as.numeric(dist2g4$min_dist)
+    l[[c]] <- dist2g4
+  }
+  
+  dist2g4<-do.call(rbind, l)
+  dist2g4<-as.data.frame(dist2g4)
+  dist2g4$chrom<-as.character(dist2g4$chrom)
+  
+  dist2g4<-arrange(dist2g4,(abs(min_dist)))
+  
+  # Removes chroms with fewer than 20 observations
+  # svCount <- table(dist2g4$chrom)
+  # dist2g4 <- subset(dist2g4, chrom %in% names(svCount[svCount > 10]))
+  
+  if(return==1){
+    return(dist2g4)
+  }
+  else{
+    p<-ggplot(dist2g4)
+    p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
+    p<-p + scale_x_continuous("Distance to G4 (Kb)",
+                              limits=c(-10000, 10000),
+                              breaks=c(-10000,-1000, 1000, 10000),
+                              expand = c(.0005, .0005),
+                              labels=c("-10", "-1", "1", "10") )
+    p<-p + scale_y_continuous("Density")
+    p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+    #p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 5)
+    p <- p + geom_rug(aes(min_dist, colour=chrom))
+    p<-p + cleanTheme() +
+      theme(strip.text = element_text(size=20),
+            legend.position="top")
+    p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+    
+    if(is.na(sim)){
+      g4Distout<-paste("bpG4dist.pdf")
+    }
+    else{
+      g4Distout<-paste("bpG4dist_sim.pdf")
+    }
+    cat("Writing file", g4Distout, "\n")
+    ggsave(paste("plots/", g4Distout, sep=""), width = 20, height = 10)
+    
+    p
+  }
+}
+
+
+
+g4DistOverlay <- function(){
+  real_data<-g4Dist(return=1)
+  real_data$Source<-"Real"
+  sim_data<-bpTssDist(sim=1, return=1)
+  sim_data$Source<-"Sim"
+  
+  sim_data<-filter(sim_data, chrom != "Y", chrom != 4)
+  sim_data<-droplevels(sim_data)
+  real_data<-filter(real_data, chrom != "Y", chrom != 4)
+  real_data<-droplevels(real_data)
+  
+  
+  colours<-c( "#E7B800", "#00AFBB")
+  
+  
+  p<-ggplot()
+  p<-p + geom_density(data=real_data,aes(min_dist, fill = Source), alpha = 0.4)
+  p<-p + geom_density(data=sim_data,aes(min_dist, fill = Source), alpha = 0.4)
+  p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+  
+  p<-p + scale_x_continuous("Distance to G4 (Kb)",
+                            limits=c(-10000, 10000),
+                            breaks=c(-10000,-1000, 1000, 10000),
+                            expand = c(.0005, .0005),
+                            labels=c("-10", "-1", "1", "10") )
+  p<-p + scale_y_continuous("Density")
+  p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+  #p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 5)
+  
+  p <- p + geom_rug(data=real_data,aes(min_dist, colour=Source),sides="b")
+  p <- p + geom_rug(data=sim_data,aes(min_dist, colour=Source),sides="t")
+  
+  
+  p <- p + scale_fill_manual(values=colours)
+  p <- p + scale_colour_manual(values=colours)
+  
+  p<-p + cleanTheme() +
+    theme(strip.text = element_text(size=20),
+          legend.position="top")
+  
+  p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+  
+  
+  g4Distout<-paste("bpG4dist_overlay.pdf")
+  
+  cat("Writing file", g4Distout, "\n")
+  ggsave(paste("plots/", g4Distout, sep=""), width = 20, height = 10)
+  
+  
+  
+  p
+  
+  
+}
+
+
+
+
+
 
 
 
