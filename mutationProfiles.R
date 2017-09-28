@@ -799,7 +799,7 @@ geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   gene_lengths_p<-filter(gene_lengths_df, col != 'NA') 
   
   p <- ggplot(gene_lengths_p, aes(log10length, observed))
-  p <- p + geom_jitter(aes(size=abs(log2FC), colour = col, alpha = 0.8))
+  p <- p + geom_jitter(aes( colour = col, alpha = 0.8))
   p <- p + scale_color_manual(values=c("#F8766D", "#00AFBB", "#E7B800"))
   p <- p + scale_x_continuous("Log10 Kb", limits=c(3, max(gene_lengths_p$log10length)))
   p <- p + scale_y_continuous("Count", limits=c(0,max(gene_lengths_p$observed)))
@@ -875,8 +875,8 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   gene_lengths<-read.delim(gene_lengths, header = T)
   region<-filter(gene_lengths, gene == gene2plot)
   
-  wStart<-(region$start - 10000)
-  wEnd<-(region$end + 10000)
+  wStart<-(region$start - 100)
+  wEnd<-(region$end + 100)
   wChrom<-as.character(region$chrom)
   wTss<-suppressWarnings(as.numeric(levels(region$tss))[region$tss])
   snv_data<-getData()
@@ -885,6 +885,8 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   if(nrow(snv_data) == 0){
     stop(paste("There are no snvs in", gene2plot, "- Exiting", "\n"))
   }
+  
+  
   
   p<-ggplot(snv_data)
   p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0, height=0.05))
@@ -906,7 +908,19 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   hit_gene<-paste(gene2plot, "_hits.pdf", sep='')
   cat("Writing file", hit_gene, "\n")
   ggsave(paste("plots/", hit_gene, sep=""), width = 10, height = 10)
+
+  # 19  66520     66520     G/A   +    var1
+  vep_data<-select(snv_data, "chrom", "pos", "ref", "alt", "sample")
+  vep_data$pos2<-vep_data$pos
+  vep_data$mut<-paste(vep_data$ref,vep_data$alt, sep='/')
+  vep_data$ref<-NULL
+  vep_data$alt<-NULL
+  vep_data$num<-1
+  #colnames(vep_data)<-c("#CHROM",	"POS", "ID",	'REF', "ALT", "QUAL", "FILTER", "INFO")
+  colnames(vep_data)<-NULL
+  vep_data<-as.data.frame(vep_data[,c(1,2,4,5,6,3)])
   
+  print(vep_data, right=FALSE, row.names = FALSE)
   p
 }
 
