@@ -1271,6 +1271,7 @@ snvSim <- function(intervals="data/intervals.bed", N=1000, write=F){
   intFile <- import.bed(intervals)
   space <- sum(width(intFile))
   positions <- sample(c(1:space), N)
+  cat("Simulating", N, "SNVs", sep = ' ', "\n")
   new_b <- GRanges(seqnames=as.character(rep(seqnames(intFile), width(intFile))),
                    ranges=IRanges(start=unlist(mapply(seq, from=start(intFile), to=end(intFile))), width=1))
   bedOut<-new_b[positions]
