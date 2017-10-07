@@ -32,8 +32,7 @@ set.seed(42)
 #' @export
 #' @return Dataframe
 
-getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/isc_EB_genes_rnaSeq_Maheva.csv'){
-  #expression_data='data/isc_EB_genes_rnaSeq_Maheva.csv'
+getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/isc_genes_rnaSeq.csv'){
   snv_data<-read.delim(infile, header = F)
   colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene", "id")
 
@@ -47,28 +46,36 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   
   # Order by FPKM
   snv_data<- arrange(snv_data, desc(fpkm))
-  
-  # Filter for genes expressed in RNA-Seq data
-  snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
 
-  # Filter on allele freq
-  #snv_data<-filter(snv_data, is.na(a_freq))
- # snv_data<-filter(snv_data, a_freq >= 0.20)
-  
-  # Filter out samples
-  snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
-  #snv_data<-filter(snv_data, sample != "A373R11" & sample != 'A373R13')
-  
   # Find vars called by both Mu and Var 
   # Must also filter one of these calls out...
   snv_data$dups<-duplicated(snv_data[,1:3])
   snv_data<-mutate(snv_data, caller = ifelse(dups == "TRUE", 'varscan2_mutect2' , as.character(caller)))
   
+  ##############
+  ## Filters ### 
+  ##############
+  
   # Filter for calls made by both V and M
-  #snv_data<-filter(snv_data, caller == 'varscan2_mutect2')
+  # snv_data<-filter(snv_data, caller == 'mutect2' | caller == 'varscan2_mutect2')
   
   # Filter for old/new data
   #snv_data <- filter(snv_data, !grepl("^A|H", sample))
+  
+  # Filter for genes expressed in RNA-Seq data
+  snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
+  
+  # Filter for genes NOT expressed in RNA-Seq data
+  # snv_data<-filter(snv_data, fpkm == 0)
+  
+  # Filter on allele freq
+  #snv_data<-filter(snv_data, is.na(a_freq))
+  # snv_data<-filter(snv_data, a_freq >= 0.20)
+  
+  # Filter out samples
+  snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  #snv_data<-filter(snv_data, sample != "A373R11" & sample != 'A373R13')
+  
   
   snv_data<-droplevels(snv_data)
   dir.create(file.path("plots"), showWarnings = FALSE)
@@ -889,7 +896,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
   
   
   p<-ggplot(snv_data)
-  p<-p + geom_point(aes(pos/1000000, sample, colour = trans, size = 1.5), position=position_jitter(width=0, height=0.05))
+  p<-p + geom_point(aes(pos/1000000, sample, colour = feature, size = 1.5), position=position_jitter(width=0, height=0.05))
   p<-p + guides(size = FALSE, sample = FALSE)
   p<-p + cleanTheme() +
     theme(axis.title.y=element_blank(),
@@ -1021,6 +1028,191 @@ triFreq <- function(genome=NA, count=NA){
 }
 
 
+getPromoter <- function(gene_lengths_in="data/gene_lengths.txt"){
+  gene_lengths<-read.delim(gene_lengths_in, header = T)
+
+  gene_lengths$promoter<-ifelse(gene_lengths$start<gene_lengths$end,
+                                gene_lengths$start- 1500,
+                                gene_lengths$end + 1500)
+  
+
+  gene_lengths<-gene_lengths[,c("chrom", "promoter")]
+  colnames(gene_lengths)<-NULL
+  return(gene_lengths)
+}
+
+dist2Feat <- function(feature_file="data/tss_locations.txt",sim=NA, print=0,send=0, feature='tss'){
+  if(is.na(sim)){
+    snv_data<-getData()
+  }
+  
+  else{
+    cat("Generating simulated snv_data\n")
+    hit_count<-nrow(getData())
+    snv_data<-snvSim(N=hit_count, write=print)
+    colnames(snv_data)<-c("chrom", "pos", "v3", "v4", "v5")
+    snv_data<-filter(snv_data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
+    snv_data<-droplevels(snv_data)
+  }
+  
+
+  feature<-paste(toupper(substr(feature, 1, 1)), substr(feature, 2, nchar(feature)), sep='')
+  
+  if(feature=='Promoter'){
+    feature_locations<-getPromoter()
+    cat("Getting gene promoter locations...\n")
+  }
+  else{ 
+    feature_locations<-read.delim(feature_file, header = F)
+    cat("Reading in file:", feature_file, sep =' ', "\n")
+  }
+  
+  cat("Calculating distances to", feature, sep=' ', "\n")
+  
+  colnames(feature_locations)<-c("chrom", "pos")
+  
+  feature_locations$pos<-as.integer(feature_locations$pos)
+  
+  # Will throw error if SVs don't exist on a chrom...
+  
+  # Removes chroms with fewer than 10 observations
+  svCount <- table(snv_data$chrom)
+  snv_data <- subset(snv_data, chrom %in% names(svCount[svCount >= 10]))
+  snv_data<-droplevels(snv_data)
+  
+  feature_locations <- subset(feature_locations, chrom %in% levels(snv_data$chrom))
+  feature_locations<-droplevels(feature_locations)  
+  
+  
+  fun2 <- function(p) {
+    index<-which.min(abs(tss_df$pos - p))
+    closestTss<-tss_df$pos[index]
+    # browser()
+    chrom<-as.character(tss_df$chrom[index])
+    gene<-as.character(tss_df$gene[index])
+    dist<-(p-closestTss)
+    list(p, closestTss, dist, chrom, gene)
+  }
+  
+  l <- list()
+  
+  for (c in levels(snv_data$chrom)){
+    df<-filter(snv_data, chrom == c)
+    tss_df<-filter(feature_locations, chrom == c)
+    dist2tss<-lapply(df$pos, fun2)
+    dist2tss<-do.call(rbind, dist2tss)
+    dist2tss<-as.data.frame(dist2tss)
+    
+    colnames(dist2tss)=c("bp", "closest_tss", "min_dist", "chrom", "closest_gene")
+    dist2tss$min_dist<-as.numeric(dist2tss$min_dist)
+    l[[c]] <- dist2tss
+  }
+  
+  dist2tss<-do.call(rbind, l)
+  dist2tss<-as.data.frame(dist2tss)
+  dist2tss$chrom<-as.character(dist2tss$chrom)
+  
+  dist2tss<-arrange(dist2tss,(abs(min_dist)))
+  
+  if(send==1){
+    return(dist2tss)
+  }
+  else{
+    p<-ggplot(dist2tss)
+    p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
+    p<-p + scale_x_continuous(paste("Distance to", feature, "(Kb)", sep=' '),
+                              limits=c(-10000, 10000),
+                              breaks=c(-10000,-1000, 1000, 10000),
+                              expand = c(.0005, .0005),
+                              labels=c("-10", "-1", "1", "10") )
+    
+    p<-p + scale_y_continuous("Density")
+    p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+    #p<-p + facet_wrap(~chrom, scale = "free_x", ncol = 5)
+    p <- p + geom_rug(aes(min_dist, colour=chrom))
+    p<-p + cleanTheme() +
+      theme(strip.text = element_text(size=20),
+            legend.position="top")
+    
+    p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+    
+    if(is.na(sim)){
+      distout<-paste("snv", feature, 'dist.pdf', sep='')
+    }
+    else{
+      distout<-paste("snv", feature, 'dist_sim.pdf', sep='')
+    }
+    
+    cat("Writing file", distout, "\n")
+    ggsave(paste("plots/", distout, sep=""), width = 20, height = 10)
+    
+    p
+  }
+}
+
+
+distOverlay <- function(feature_file="data/tss_locations.txt", feature='tss'){
+  feature<-paste(toupper(substr(feature, 1, 1)), substr(feature, 2, nchar(feature)), sep='')
+  
+  
+  if(feature=='promoter'){
+    real_data<-dist2Feat(send=1, feature=feature)
+    sim_data<-dist2Feat(feature=feature, sim=1, send=1)
+  }
+  else{ 
+    real_data<-dist2Feat(feature_file=feature_file, send=1, feature=feature)
+    sim_data<-dist2Feat(feature_file=feature_file, feature=feature, sim=1, send=1)
+  }
+  
+  real_data$Source<-"Real"
+  
+  sim_data$Source<-"Sim"
+  
+  sim_data<-filter(sim_data, chrom != "Y", chrom != 4)
+  sim_data<-droplevels(sim_data)
+  real_data<-filter(real_data, chrom != "Y", chrom != 4)
+  real_data<-droplevels(real_data)
+  
+  
+  colours<-c( "#E7B800", "#00AFBB")
+  
+  
+  p<-ggplot()
+  p<-p + geom_density(data=real_data,aes(min_dist, fill = Source), alpha = 0.4)
+  p<-p + geom_density(data=sim_data,aes(min_dist, fill = Source), alpha = 0.4)
+  p<-p + facet_wrap(~chrom, ncol = 3, scales = "free_y")
+  
+  p<-p + scale_x_continuous(paste("Distance to", feature, "(Kb)", sep=' '),
+                            limits=c(-10000, 10000),
+                            breaks=c(-10000,-1000, 1000, 10000),
+                            expand = c(.0005, .0005),
+                            labels=c("-10", "-1", "1", "10") )
+  p<-p + scale_y_continuous("Density")
+  p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
+  
+  p <- p + geom_rug(data=real_data,aes(min_dist, colour=Source),sides="b")
+  p <- p + geom_rug(data=sim_data,aes(min_dist, colour=Source),sides="t")
+  
+  
+  p <- p + scale_fill_manual(values=colours)
+  p <- p + scale_colour_manual(values=colours)
+  
+  p<-p + cleanTheme() +
+    theme(strip.text = element_text(size=20),
+          legend.position="top")
+  
+  overlay<-paste("snv", feature, 'dist_overlay.pdf', sep='')
+  cat("Writing file", overlay, "\n")
+  ggsave(paste("plots/", overlay, sep=""), width = 25, height = 10)
+  
+  
+  
+  p
+  
+  
+}
+
+
 
 
 #' tssDist
@@ -1032,76 +1224,6 @@ triFreq <- function(genome=NA, count=NA){
 #' @import ggplot2
 #' @keywords tss
 #' @export
-
-# tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0){
-#   tss_locations<-read.delim(tss_pos, header = T)
-#   tss_locations$tss<-as.integer(tss_locations$tss)
-#   snv_data<-getData()
-#   if(!is.na(sim)){
-#     simrep<-nrow(snv_data)
-#     cat("Generating simulated snv_data for", simrep, "SNVs", "\n")
-#     snv_data<-snvSim(N=simrep, write=print)
-#     colnames(snv_data)<-c("chrom", "pos", "v3", "v4", "v5")
-#     snv_data<-filter(snv_data, chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" | chrom == "Y" | chrom == "4")
-#     snv_data<-droplevels(snv_data)
-#   }
-#   
-#   fun2 <- function(p) {
-#     index<-which.min(abs(tss_df$tss - p))
-#     closestTss<-tss_df$tss[index]
-#     chrom<-as.character(tss_df$chrom[index])
-#     gene<-as.character(tss_df$gene[index])
-#     dist<-(p-closestTss)
-#     list(p, closestTss, dist, chrom, gene)
-#   }
-#   
-#   l <- list()
-#   
-#   for (c in levels(snv_data$chrom)){
-#     df<-filter(snv_data, chrom == c)
-#     tss_df<-filter(tss_locations, chrom == c)
-#     dist2tss<-lapply(df$pos, fun2)
-#     dist2tss<-do.call(rbind, dist2tss)
-#     dist2tss<-as.data.frame(dist2tss)
-#     
-#     colnames(dist2tss)=c("snp", "closest_tss", "min_dist", "chrom", "closest_gene")
-#     dist2tss$min_dist<-as.numeric(dist2tss$min_dist)
-#     l[[c]] <- dist2tss
-#   }
-#   
-#   dist2tss<-do.call(rbind, l)
-#   dist2tss<-as.data.frame(dist2tss)
-#   dist2tss$chrom<-as.character(dist2tss$chrom)
-#   
-#   dist2tss<-arrange(dist2tss,(abs(min_dist)))
-#   
-#   # Removes chroms with fewer than 20 observations
-#   snvCount <- table(dist2tss$chrom)
-#   dist2tss <- subset(dist2tss, chrom %in% names(snvCount[snvCount > 25]))
-#   dist2tss <- filter(dist2tss, chrom != 'Y')
-#   
-#   p<-ggplot(dist2tss)
-#   p<-p + geom_density(aes(min_dist, fill = chrom), alpha = 0.3)
-#   p<-p + scale_x_continuous("Distance to TSS (Kb)",
-#                             limits=c(-100000, 100000),
-#                             breaks=c( -10000, -1000, 0, 1000, 10000 ),
-#                             expand = c(.0005, .0005),
-#                             labels=c("-10", "-1", 0, "1", "10") )
-#   p<-p + scale_y_continuous("Density", expand = c(0, 0))
-#   p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
-#   p<-p + cleanTheme()
-#   #p<-p + facet_wrap(~chrom, ncol = 2, scales = "free_y")
-#   p
-#   
-#   # p<-ggplot(dist2tss)
-#   # p<-p + geom_histogram(aes(min_dist, fill = chrom), alpha = 0.6, bins=500)
-#   # p<-p + scale_x_continuous("Distance to TSS", limits=c(-1000, 1000))
-#   # p<-p + geom_vline(xintercept = 0, colour="black", linetype="dotted")
-#   # p
-#   
-# }
-
-
 
 tssDist <- function(tss_pos="data/tss_positions.txt",sim=NA, print=0,return=0){
   tss_locations<-read.delim(tss_pos, header = T)
