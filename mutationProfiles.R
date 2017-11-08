@@ -65,7 +65,7 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
 
   # Filter for genes expressed in RNA-Seq data
   # cat("Filtering out non-expressed genes\n")
-  snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
+  # snv_data<-filter(snv_data, !is.na(fpkm) & fpkm > 0.1)
 
   # Filter for genes NOT expressed in RNA-Seq data
   # cat("Filtering out expressed genes\n")
@@ -495,7 +495,7 @@ mutSpectrum <- function(){
 
   p<-ggplot(snv_data)
   p<-p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), position="dodge",stat="count")
-  p<-p + scale_y_continuous("Contribution to mutation load", limits = c(0, 0.05), breaks=c(0, 0.025, 0.05), labels=c("0", "2.5%", "5%"), expand = c(0.0, .0005))
+  p<-p + scale_y_continuous("Contribution to mutation load", limits = c(0, 0.25), breaks=c(0, 0.025, 0.05), labels=c("0", "2.5%", "5%"), expand = c(0.0, .0005))
   p<-p + scale_x_discrete("Genomic context", expand = c(.005, .005))
   p<-p + cleanTheme() +
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
@@ -509,7 +509,7 @@ mutSpectrum <- function(){
   p<-p + guides(grouped_trans = FALSE)
   mut_spectrum<-paste("mutation_spectrum.pdf")
   cat("Writing file", mut_spectrum, "\n")
-  ggsave(paste("plots/", mut_spectrum, sep=""), width = 20, height = 7.5)
+  ggsave(paste("plots/", mut_spectrum, sep=""), width = 20, height = 5)
   p
 }
 
