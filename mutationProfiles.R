@@ -45,7 +45,7 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   snv_data$fpkm <- ifelse(is.na(snv_data$fpkm), 0, round(as.numeric(snv_data$fpkm), 1))
 
   # Order by FPKM
-  snv_data<- arrange(snv_data, desc(fpkm))
+  snv_data<- dplyr::arrange(snv_data, desc(fpkm))
 
   # Find vars called by both Mu and Var
   # Must also filter one of these calls out...
@@ -697,7 +697,9 @@ geneEnrichment <- function(gene_lengths_in="data/gene_lengths.txt", n=10, genome
   genesFC$fc<-round(as.numeric(genesFC$fc), 2)
   genesFC$log2FC<-round(as.numeric(genesFC$log2FC), 2)
   # Sort by FC value
-  genesFC<-arrange(genesFC,desc(fc))
+  genesFC<-dplyr::arrange(genesFC,desc(as.integer(fc)))
+
+
 
 
 
