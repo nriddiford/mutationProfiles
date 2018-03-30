@@ -1,5 +1,9 @@
 # mutationProfiles
 
+This is a tool to extract and analyse SNV information from VCF files produced by Mutect2 or Varscan2.   
+This tool is under constant development. Please feel free to [contact me](mailto:nick.riddiford@curie.fr), or [raise an issue](https://github.com/nriddiford/mutationProfiles/issues) if you encounter any problems.
+
+
 ## Installation
 
 Install from github:
