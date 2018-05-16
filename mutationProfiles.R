@@ -77,7 +77,8 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
   # snv_data<-filter(snv_data, a_freq >= 0.20)
 
   # Filter out samples
-  snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  # snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  snv_data <- filter(snv_data, !sample %in% c("A373R1", "A373R7", "A512R17", "A373R11", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9"))
   # snv_data<-filter(snv_data, sample != "A373R11" & sample != 'A373R13')
 
   snv_data<-droplevels(snv_data)
@@ -394,6 +395,7 @@ mutSigs <- function(samples=NA, pie=NA){
 #' @import deconstructSigs
 #' @import data.table
 #' @import reshape
+#' @import forcats
 #' @import BSgenome.Dmelanogaster.UCSC.dm6
 #' @keywords signatures
 #' @export
@@ -433,11 +435,13 @@ sigTypes <- function(){
   mutData<-melt(rbindlist(mutWeights, idcol = 'sample'),
                 id = 'sample', variable.name = 'signature', value.name = 'score')
 
-  mutData<-filter(mutData, score > 0.1)
-  mutData<-droplevels(mutData)
+  mutData <- mutData %>%
+    filter(score > 0.1) %>%
+    group_by(sample) %>%
+    mutate(total = sum(score))
 
-  p <- ggplot(mutData[order(mutData$signature),])
-  p <- p + geom_bar(aes(reorder(sample, -score), score, fill=signature),colour="black", stat = "identity")
+  p <- ggplot(mutData)
+  p <- p + geom_bar(aes(fct_reorder(sample, -total), score, fill=signature),colour="black", stat = "identity")
   p <- p + scale_x_discrete("Sample")
   p <- p + scale_y_continuous("Signature contribution", expand = c(0.01, 0.01), breaks=seq(0, 1, by=0.1))
   p <- p + cleanTheme() +
@@ -476,6 +480,7 @@ sigPie <- function() {
   pie <- bp + coord_polar("y", start=0)
   pie + cleanTheme() +
     theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
 }
 
 
@@ -564,8 +569,10 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
         stat<-binom.test(x = classCount[f], n = mutCount, p = featureFraction, alternative = "less")
         test<-"depletion"
       }
-      sig_val<-'F'
-      if(stat$p.value <= 0.05){ sig_val<-'T'}
+      sig_val <- ifelse(stat$p.value <= 0.001, "***",
+                        ifelse(stat$p.value <= 0.01, "**",
+                               ifelse(stat$p.value <= 0.05, "*", "")))
+
       p_val<-format.pval(stat$p.value, digits = 3, eps=0.0001)
       list(feature = f, observed = classCount[f], expected = featureExpect, Log2FC = Log2FC, test = test, sig = sig_val, p_val = p_val)
     }
@@ -683,25 +690,41 @@ geneEnrichment <- function(gene_lengths_in="data/gene_lengths.txt", n=10, genome
     fc<-hit_genes[[g]]/gene_expect
     log2FC = log2(fc)
 
+    if (hit_genes[[g]] >= gene_expect) {
+      stat <- binom.test(x = hit_genes[[g]], n = snv_count, p = genefraction, alternative = "greater")
+      test <- "enrichment"
+    } else {
+      stat <- binom.test(x = hit_genes[[g]], n = snv_count, p = genefraction, alternative = "less")
+      test <- "depletion"
+    }
+
+    sig_val <- ifelse(stat$p.value <= 0.001, "***",
+                      ifelse(stat$p.value <= 0.01, "**",
+                             ifelse(stat$p.value <= 0.05, "*", "")))
+
+    sig_val <- ifelse(stat$p.value > 0.05, "-", sig_val)
+
+    p_val <- format.pval(stat$p.value, digits = 3)
+
     gene_expect<-round(gene_expect,digits=3)
-    list(gene = g, length = genes[[g]], fpkm = expression[[g]],  observed = hit_genes[g], expected = gene_expect, fc = fc, log2FC = log2FC)
+    list(gene = g, length = genes[[g]], fpkm = expression[[g]], test=test, observed = hit_genes[g], expected = gene_expect, fc = fc, log2FC = log2FC, sig_val=sig_val, p_val=p_val)
   }
 
   enriched<-lapply(levels(snv_data$gene), fun)
   enriched<-do.call(rbind, enriched)
   genesFC<-as.data.frame(enriched)
   # Filter for genes with few observations
-  genesFC<-filter(genesFC, observed >= n)
-  genesFC<-droplevels(genesFC)
-  genesFC$expected<-round(as.numeric(genesFC$expected),digits=3)
-  genesFC$fc<-round(as.numeric(genesFC$fc), 2)
-  genesFC$log2FC<-round(as.numeric(genesFC$log2FC), 2)
-  # Sort by FC value
-  genesFC<-dplyr::arrange(genesFC,desc(as.integer(fc)))
 
-
-
-
+  genesFC <- genesFC %>%
+    filter(observed >= n) %>%
+    mutate(expected = round(as.numeric(expected),digits=3)) %>%
+    mutate(log2FC = round(as.numeric(log2FC),digits=2)) %>%
+    mutate(p_val = as.numeric(p_val)) %>%
+    mutate(eScore = abs(log2FC) * -log10(p_val)) %>%
+    mutate(eScore = round(as.numeric(eScore),digits=2)) %>%
+    select(gene, observed, expected, log2FC, test, sig_val, p_val, eScore) %>%
+    dplyr::arrange(-eScore, p_val, -abs(log2FC)) %>%
+    droplevels()
 
   if(!is.na(print)){
     cat("printing")
@@ -718,6 +741,59 @@ geneEnrichment <- function(gene_lengths_in="data/gene_lengths.txt", n=10, genome
   else{ return(genesFC) }
 }
 
+
+# EnrichmentVolcano
+#'
+#' Plot the enrichment of SNVs in genes features
+#' @keywords enrichment
+#' @import dplyr
+#' @import plotly
+#' @export
+
+EnrichmentVolcano <- function(d){
+  gene_enrichment <- d
+
+  minPval <- min(gene_enrichment$p_val[gene_enrichment$p_val>0])
+
+  gene_enrichment$p_val <- ifelse(gene_enrichment$p_val==0, minPval/abs(gene_enrichment$log2FC), gene_enrichment$p_val)
+
+  gene_enrichment$p_val <- ifelse(gene_enrichment$p_val==0, minPval, gene_enrichment$p_val)
+
+
+  maxLog2 <- max(abs(gene_enrichment$log2FC[is.finite(gene_enrichment$log2FC)]))
+  maxLog2 <- as.numeric(round_any(maxLog2, 1, ceiling))
+
+  ax <- list(
+    size = 25
+  )
+
+  ti <- list(
+    size = 25
+  )
+
+  p <- plot_ly(data = gene_enrichment,
+               x = ~log2FC,
+               y = ~-log10(p_val),
+               type = 'scatter',
+               # showlegend = FALSE,
+               mode = 'markers',
+               # height = 1200,
+               # width = 1000,
+               # frame = ~p_val,
+               text = ~paste("Gene: ", gene, "\n",
+                             "Observed: ", observed, "\n",
+                             "Expected: ", expected, "\n",
+                             "P-val: ", p_val, "\n"),
+               color = ~log10(p_val),
+               colors = "Spectral",
+               size = ~-log10(p_val)
+  ) %>%
+    layout(
+      xaxis = list(title="Log2(FC)", titlefont = ax, range = c(-maxLog2, maxLog2)),
+      yaxis = list(title="-Log10(p)", titlefont = ax)
+    )
+  p
+}
 
 geneEnrichmentPlot <- function(n=0) {
   gene_enrichment<-geneEnrichment(n=n)
@@ -956,6 +1032,11 @@ featuresHit <- function(){
   # Reoders descending
   snv_data$feature<-factor(snv_data$feature, levels = names(sort(table(snv_data$feature), decreasing = TRUE)))
 
+  snv_data <- snv_data %>%
+    group_by(feature) %>%
+    add_tally() %>%
+    ungroup() %>%
+    filter(n >= 5)
   #cols<-setCols(snv_data, "feature")
 
   p<-ggplot(snv_data)
@@ -1748,6 +1829,37 @@ chromDist <- function(object=NA, notch=0){
   chrom_outfile<-paste("snv_dist_genome_by_", object, ext, sep = "")
   cat("Writing file", chrom_outfile, "\n")
   ggsave(paste("plots/", chrom_outfile, sep=""), width = 20, height = 10)
+
+  p
+}
+
+mutationTypes <- function(allele_frequency = 0.1){
+  snv_data<-getData()
+
+  snv_data <- snv_data %>%
+    filter(dups!="TRUE") %>%
+    filter(a_freq>=allele_frequency)
+
+
+
+  library(dplyr)
+  mutCounts <- snv_data %>%
+    group_by(sample, grouped_trans) %>%
+    summarise(count=n()) %>%
+    mutate(perc=count/sum(count))
+
+
+  p <- ggplot(mutCounts)
+  p <- p + geom_bar(aes(sample, perc*100, fill=grouped_trans),  stat="identity")
+
+  p <- p + cleanTheme() +
+    theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.x = element_text(angle = 90, hjust=1),
+          axis.text.y = element_text(size=15),
+          axis.title = element_text(size=20),
+          strip.text.x = element_text(size = 15)
+    )
+  p <- p + ylab("% contribution")
 
   p
 }
