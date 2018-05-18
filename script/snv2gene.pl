@@ -30,6 +30,9 @@ my (%transcript_length, %genes, %features);
 
 my ($sample, $annotated_snvs, $genes_out, $bp_out);
 
+
+mkdir 'data' unless -d 'data';
+
 make_gene_hash($features);
 
 annotate_SNVs($snv_in);
