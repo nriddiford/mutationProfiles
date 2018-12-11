@@ -4,7 +4,8 @@
 \alias{getData}
 \title{getData}
 \usage{
-getData(infile = "data/annotated_snvs.txt")
+getData(infile = "data/annotated_snvs.txt",
+  expression_data = "data/isc_genes_rnaSeq.csv")
 }
 \arguments{
 \item{infile}{File to process [Required]}

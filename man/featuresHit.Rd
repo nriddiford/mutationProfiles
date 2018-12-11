@@ -4,7 +4,7 @@
 \alias{featuresHit}
 \title{featuresHit}
 \usage{
-featuresHit()
+featuresHit(..., write = FALSE)
 }
 \description{
 Show top hit features

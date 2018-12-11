@@ -8,6 +8,7 @@ use File::Basename;
 use autodie;
 
 use Data::Dumper;
+use Data::Printer;
 
 use vcfParse;
 
@@ -27,7 +28,12 @@ GetOptions( 'help'            =>    \$help,
 
 if ($help) { exit usage() }
 
-my ( $data, $info_fields, $calls, $heads ) = vcfParse::parse($vcf_file);
+if ( not $vcf_file or not $source ){
+  say "Must privide an input file -v [input.vcf] and specify source -s [varscan|mutect]";
+  exit usage();
+}
+
+my ( $data, $info_fields, $calls, $heads, $sams ) = vcfParse::parse($vcf_file);
 
 my (@headers) = @{$heads};
 
@@ -57,15 +63,12 @@ for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
 
    my $filter = 0;
 
+
    if ($chrom !~ /^(2L|2R|3L|3R|4|X|Y)$/ ){
      $filter++;
    }
-
-  #  print Dumper \%sample_info;
-
    # Filter if alt AD < 2
-   if ($sample_info{$_}{'TUMOR'}{'AD'}){
-
+   if ($sample_info{$_}{TUMOR}{AD}){
      # Tumour alt and ref allele depths
      my ($t_ref_ad, $t_alt_ad);
 
@@ -73,16 +76,23 @@ for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
      my ($n_ref_ad, $n_alt_ad );
 
      if ($source eq 'mutect'){
-       ($t_ref_ad, $t_alt_ad) = split(/,/, $sample_info{$_}{'TUMOR'}{'AD'});
-       ($n_ref_ad, $n_alt_ad) = split(/,/, $sample_info{$_}{'NORMAL'}{'AD'});
+        my ($tumour_name, $normal_name) = @$sams;
+        ($t_ref_ad, $t_alt_ad) = split(/,/, $sample_info{$_}{$tumour_name}{'AD'});
+        ($n_ref_ad, $n_alt_ad) = split(/,/, $sample_info{$_}{$normal_name}{'AD'});
+        # $t_alt_ad = 3; # Force mutect2 vars through...
+     }
+     
+     elsif ($source eq 'varscan' or $source eq 'indel'){
+       $t_alt_ad   = $sample_info{$_}{TUMOR}{AD};
+       $t_ref_ad   = $sample_info{$_}{TUMOR}{RD};
+       $n_alt_ad   = $sample_info{$_}{NORMAL}{AD};
+       $n_ref_ad   = $sample_info{$_}{NORMAL}{RD};
+      # should reduce to p <= 0.01
+       if ($information{$_}{SPV} >= 0.05){
+         $filter++;
+       }
      }
 
-     elsif ($source eq 'varscan'){
-       $t_alt_ad   = $sample_info{$_}{'TUMOR'}{'AD'};
-       $t_ref_ad   = $sample_info{$_}{'TUMOR'}{'RD'};
-       $n_alt_ad   = $sample_info{$_}{'NORMAL'}{'AD'};
-       $n_ref_ad   = $sample_info{$_}{'NORMAL'}{'RD'};
-     }
 
      if ($t_alt_ad < 2){
       #  say "Alt allele depth filt: $t_alt_ad";
@@ -104,13 +114,12 @@ for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
      }
    }
 
-   if ($sample_info{$_}{'TUMOR'}{'AF'}){
-     my $af = $sample_info{$_}{'TUMOR'}{'AF'};
-
-     if ($af < 0.075){
-      #  say "Allele freq filt: $af";
-       $filter++;
-     }
+   if ($sample_info{$_}{TUMOR}{AF}){
+     my $af = $sample_info{$_}{TUMOR}{AF};
+     # if ($af < 0.075){
+     #  #  say "Allele freq filt: $af";
+     #   $filter++;
+     # }
 
   }
 
