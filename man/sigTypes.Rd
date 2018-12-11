@@ -4,14 +4,9 @@
 \alias{sigTypes}
 \title{sigTypes}
 \usage{
-sigTypes(write = FALSE)
-}
-\arguments{
-\item{samples}{Calculates and plots mutational signatures on a per-sample basis [Default no]}
-
-\item{pie}{Plot a pie chart shwoing contribution of each signature to overall profile [Default no]}
+sigTypes()
 }
 \description{
-Calculate and plot the mutational signatures accross samples using the package `deconstructSigs`
+Calculate and plot the contribution of mutational signatures accross samples using the package `deconstructSigs`
 }
 \keyword{signatures}

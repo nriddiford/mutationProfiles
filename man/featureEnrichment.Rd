@@ -5,7 +5,7 @@
 \title{featureEnrichment}
 \usage{
 featureEnrichment(features = "data/genomic_features.txt",
-  genome_length = 118274340, write = FALSE)
+  genome_length = 118274340)
 }
 \arguments{
 \item{features}{File containing total genomic lengths of features [Default 'data/genomic_features.txt']}
@@ -13,7 +13,7 @@ featureEnrichment(features = "data/genomic_features.txt",
 \item{genome_length}{The total legnth of the genome [Default 118274340 (mappable regions on chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]}
 }
 \value{
-A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
+A data frame with FC scores for all genes seen at least n times in snv data
 }
 \description{
 Calculate the enrichment of snv hits in genomic features

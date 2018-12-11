@@ -7,31 +7,31 @@
 #' @keywords trinucleotides
 #' @export
 #' @return Dataframe of trinucs and freqs (or counts if count=1)
-
-triFreq <- function(genome=NULL, count=FALSE){
-  if(missing(genome)){
+triFreq <- function(genome=NA, count=NA){
+  if(is.na(genome)){
     cat("No genome specfied, defaulting to 'BSgenome.Dmelanogaster.UCSC.dm6'\n")
     library(BSgenome.Dmelanogaster.UCSC.dm6, quietly = TRUE)
     genome <- BSgenome.Dmelanogaster.UCSC.dm6
   }
 
   params <- new("BSParams", X = Dmelanogaster, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
-  snv_data<-as.data.frame(bsapply(params))
-  snv_data$genome<-as.integer(rowSums(snv_data))
-  snv_data$genome_adj<-(snv_data$genome*2)
+  data<-as.data.frame(bsapply(params))
+  data$genome<-as.integer(rowSums(data))
+  data$genome_adj<-(data$genome*2)
 
-  if(count){
-    tri_count<-snv_data['genome_adj']
+  if(!is.na(count)){
+    tri_count<-data['genome_adj']
     tri_count<-cbind(tri = rownames(tri_count), tri_count)
     colnames(tri_count) <- c("tri", "count")
     rownames(tri_count) <- NULL
     return(tri_count)
   }
   else{
-    snv_data$x <- (1/snv_data$genome)
-    scaling_factor<-snv_data['x']
+    data$x <- (1/data$genome)
+    scaling_factor<-data['x']
     return(scaling_factor)
   }
+
 }
 
 #' A function to calculate trinucleotide frequences from a supplied fasta file

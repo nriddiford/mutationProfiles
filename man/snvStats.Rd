@@ -7,6 +7,6 @@
 snvStats()
 }
 \description{
-Calculate some basic stats for snv snv_data
+Calculate some basic stats for snv data
 }
 \keyword{stats}

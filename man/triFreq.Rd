@@ -4,7 +4,7 @@
 \alias{triFreq}
 \title{triFreq}
 \usage{
-triFreq(genome = NULL, count = FALSE)
+triFreq(genome = NA, count = NA)
 }
 \arguments{
 \item{genome}{BS.genome file defaults to BSgenome.Dmelanogaster.UCSC.dm6}

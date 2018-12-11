@@ -14,11 +14,9 @@ use Getopt::Long qw/ GetOptions /;
 my $snv_in;
 my $help;
 my $features = '/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf';
-my $type = 'snv';
 
 GetOptions( 'infile=s'         =>    \$snv_in,
             'features=s'       =>    \$features,
-            'type=s'           =>    \$type,
             'help'             =>    \$help
     ) or die usage();
 
@@ -36,7 +34,8 @@ my ($sample, $annotated_snvs, $genes_out, $bp_out);
 mkdir 'data' unless -d 'data';
 
 make_gene_hash($features);
-annotate_SNVs($snv_in, $type);
+
+annotate_SNVs($snv_in);
 
 sub make_gene_hash {
   my $bed_file = shift;
@@ -70,21 +69,10 @@ sub make_gene_hash {
 }
 
 sub annotate_SNVs {
-  my ($in, $type) = @_;
+  my $in = shift;
 
   open my $snv_in, '<', $in;
-
-  if ($type eq 'indel'){
-    open $annotated_snvs, '>', "data/annotated_indels.txt";
-  }
-  else {
-    open $annotated_snvs, '>', "data/annotated_snvs.txt";
-  }
-
-  if ( -z $annotated_snvs ) {
-    say "Adding header to file";
-    print $annotated_snvs join("\t", "sample", "chromosome", "pos", "ref", "alt", "trinuc", "trans", "decomp_trinuc", "grouped_trans", "allele_frequency", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id") . "\n";
-  }
+  open $annotated_snvs, '>', "data/annotated_snvs.txt";
 
   my $call = 1;
 
@@ -101,7 +89,7 @@ sub annotate_SNVs {
     ($hit_object, $hit_feature, $hit_gene, $hit_id,  $hit_ref) = getbps($chrom, $pos, $hit_object, \%hits);
     %hits = %{ $hit_ref };
 
-    say "$type in sample $sample: $chrom\:$pos is in $hit_object";
+    say "snv in sample $sample: $chrom\:$pos is in $hit_object";
 
     print $annotated_snvs join("\t", $_, $hit_feature, $hit_gene, $hit_id) . "\n";
     # $call++;
@@ -163,7 +151,7 @@ sub getbps {
 sub usage {
   print
 "
-usage: $Script [-h] [opts]
+usage: $Script [-h] [-i INFILE] [-f FEATURES]
 
 sv2gene
 author: Nick Riddiford (nick.riddiford\@curie.fr)
@@ -172,7 +160,7 @@ description: Annotate SNVs for genomic features and genes
 
 arguments:
   -h, --help            show this help message and exit
-  -i --infile
+  -i INFILE, --infile
                         SV calls file (as produced by svParser)[required]
   -f FEATURES --features
                         Features file to annotate from (should be in .gtf format)

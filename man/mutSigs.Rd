@@ -4,7 +4,7 @@
 \alias{mutSigs}
 \title{mutSigs}
 \usage{
-mutSigs(samples = NULL, pie = FALSE, write = FALSE)
+mutSigs(samples = NA, pie = NA)
 }
 \arguments{
 \item{samples}{Calculates and plots mutational signatures on a per-sample basis [Default no]}

@@ -31,9 +31,10 @@ set.seed(42)
 #' @import dplyr
 #' @export
 #' @return Dataframe
+
 getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/isc_genes_rnaSeq.csv'){
-  snv_data<-read.delim(infile, header = T)
-  colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id")
+  snv_data<-read.delim(infile, header = F)
+  colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "a_freq", "caller", "feature", "gene", "id")
 
   # Read in tissue specific expression data
   seq_data<-read.csv(header = F, expression_data)
@@ -77,16 +78,10 @@ getData <- function(infile = "data/annotated_snvs.txt", expression_data='data/is
 
   # Filter out samples
   # snv_data<-filter(snv_data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
-  # snv_data <- filter(snv_data, !sample %in% c("A373R1", "A373R7", "A512R17", "A373R11", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9"))
+  snv_data <- filter(snv_data, !sample %in% c("A373R1", "A373R7", "A512R17", "A373R11", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9"))
   # snv_data<-filter(snv_data, sample != "A373R11" & sample != 'A373R13')
-  # snv_data <- snv_data %>%
-  #   filter(!sample %in% c("A373R1", "A373R7", "A512R17", "A373R11", "D050R07-2")) %>%
-  #   droplevels()
 
-  # snv_data <- snv_data %>%
-  #   filter(sample %in% c("D050R01", "D050R03", "D050R05", "D050R07-1")) %>%
-  #   droplevels()
-
+  snv_data<-droplevels(snv_data)
   dir.create(file.path("plots"), showWarnings = FALSE)
   return(snv_data)
 }
@@ -216,9 +211,10 @@ snvStats <- function(){
 #' @export
 
 rainfall <- function(){
-  snv_data <- getData()
+  snv_data<-getData()
 
-  distances <- do.call(rbind, lapply(split(snv_data[order(snv_data$chrom, snv_data$pos),], snv_data$chrom[order(snv_data$chrom, snv_data$pos)]),
+  snv_data<-filter(snv_data, sample != "A373R11" & sample != 'A373R13')
+  distances<-do.call(rbind, lapply(split(snv_data[order(snv_data$chrom, snv_data$pos),], snv_data$chrom[order(snv_data$chrom, snv_data$pos)]),
                                    function(a)
                                      data.frame(a,
                                                 dist=c(diff(a$pos), NA),
@@ -330,18 +326,19 @@ calledSnvs <- function(){
 #' @keywords signatures
 #' @export
 
-mutSigs <- function(samples=NULL, pie=FALSE, write=FALSE){
+mutSigs <- function(samples=NA, pie=NA){
+  suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
+  suppressMessages(require(deconstructSigs))
 
   if(!exists('scaling_factor')){
-    cat("calculating trinucleotide frequencies in genome\n")
+    cat("calculationg trinucleotide frequencies in genome\n")
     scaling_factor <-triFreq()
   }
 
   snv_data<-getData()
   genome <- BSgenome.Dmelanogaster.UCSC.dm6
 
-  if(missing(samples)){
-    cat("Plotting for all samples\n")
+  if(is.na(samples)){
     snv_data$tissue = 'All'
     sigs.input <- mut.to.sigs.input(mut.ref = snv_data, sample.id = "tissue", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
     sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = 'All',
@@ -349,15 +346,14 @@ mutSigs <- function(samples=NULL, pie=FALSE, write=FALSE){
                               tri.counts.method = scaling_factor
     )
 
-    if(write){
-      cat("Writing to file 'plots/all_signatures.pdf'\n")
-      pdf('plots/all_signatures.pdf', width = 20, height = 10)
-      plotSignatures(sig_plot)
-      dev.off()
-    }
+    cat("Writing to file 'plots/all_signatures.pdf'\n")
+    pdf('plots/all_signatures.pdf', width = 20, height = 10)
+    plotSignatures(sig_plot)
+    dev.off()
     plotSignatures(sig_plot)
 
-    if(pie){
+
+    if(!is.na(pie)){
       makePie(sig_plot)
     }
   }
@@ -375,16 +371,14 @@ mutSigs <- function(samples=NULL, pie=FALSE, write=FALSE){
                                   contexts.needed = TRUE,
                                   tri.counts.method = scaling_factor)
 
-        if(write){
-          outfile<-(paste('plots/', s, '_signatures.pdf', sep = ''))
-          cat("Writing to file", outfile, "\n")
-          pdf(outfile, width = 20, height = 10)
-          plotSignatures(sig_plot)
-          dev.off()
-        }
+        outfile<-(paste('plots/', s, '_signatures.pdf', sep = ''))
+        cat("Writing to file", outfile, "\n")
+        pdf(outfile, width = 20, height = 10)
+        plotSignatures(sig_plot)
+        dev.off()
         plotSignatures(sig_plot)
 
-        if(pie){
+        if(!is.na(pie)){
           makePie(sig_plot)
         }
       }
@@ -406,7 +400,7 @@ mutSigs <- function(samples=NULL, pie=FALSE, write=FALSE){
 #' @keywords signatures
 #' @export
 
-sigTypes <- function(write=FALSE){
+sigTypes <- function(){
   suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
   suppressMessages(require(deconstructSigs))
 
@@ -455,11 +449,10 @@ sigTypes <- function(write=FALSE){
           axis.text = element_text(size=30)
     )
 
-  if(write){
-    sigTypes<-paste("sigTypes.pdf")
-    cat("Writing file", sigTypes, "\n")
-    ggsave(paste("plots/", sigTypes, sep=""), width = 20, height = 10)
-  }
+  sigTypes<-paste("sigTypes.pdf")
+  cat("Writing file", sigTypes, "\n")
+  ggsave(paste("plots/", sigTypes, sep=""), width = 20, height = 10)
+
   p
 }
 
@@ -500,28 +493,28 @@ sigPie <- function() {
 #' @import ggplot2
 #' @keywords spectrum
 #' @export
-mutSpectrum <- function(write=FALSE, max_y=25){
+
+mutSpectrum <- function(){
   snv_data<-getData()
   cat("Showing global contribution of tri class to mutation load", "\n")
 
-  p <- ggplot(snv_data)
-  p <- p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), position="dodge",stat="count")
-  p <- p + scale_y_continuous("Contribution to mutation load", limits = c(0, max_y/100), breaks=seq(0,max_y/100,by=0.025), labels=paste0(seq(0,max_y,by=2.5), "%"), expand = c(0.0, .0005))
-  p <- p + scale_x_discrete("Genomic context", expand = c(.005, .005))
-  p <- p + cleanTheme() +
+  p<-ggplot(snv_data)
+  p<-p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), position="dodge",stat="count")
+  p<-p + scale_y_continuous("Contribution to mutation load", limits = c(0, 0.25), breaks=c(0, 0.025, 0.05), labels=c("0", "2.5%", "5%"), expand = c(0.0, .0005))
+  p<-p + scale_x_discrete("Genomic context", expand = c(.005, .005))
+  p<-p + cleanTheme() +
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
           axis.text.x = element_text(angle = 90, hjust=1),
           axis.text.y = element_text(size=15),
           axis.title = element_text(size=20),
           strip.text.x = element_text(size = 15)
     )
-  p <- p + facet_wrap(~grouped_trans, ncol = 6, scale = "free_x" )
-  p <- p + guides(grouped_trans = FALSE)
-  if(write){
-    mut_spectrum<-paste("mutation_spectrum.pdf")
-    cat("Writing file", mut_spectrum, "\n")
-    ggsave(paste("plots/", mut_spectrum, sep=""), width = 20, height = 5)
-  }
+  # p<-p + labs(fill="Mutation class")
+  p<-p + facet_wrap(~grouped_trans, ncol = 6, scale = "free_x" )
+  p<-p + guides(grouped_trans = FALSE)
+  mut_spectrum<-paste("mutation_spectrum.pdf")
+  cat("Writing file", mut_spectrum, "\n")
+  ggsave(paste("plots/", mut_spectrum, sep=""), width = 20, height = 5)
   p
 }
 
@@ -539,10 +532,11 @@ mutSpectrum <- function(write=FALSE, max_y=25){
 #' @param features File containing total genomic lengths of features [Default 'data/genomic_features.txt']
 #' @param genome_length The total legnth of the genome [Default 118274340 (mappable regions on chroms 2, 3, 4, X & Y for Drosophila melanogastor Dmel6.12)]
 #' @keywords enrichment
-#' @import dplyr ggpubr
+#' @import dplyr
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export
-featureEnrichment <- function(features='data/genomic_features.txt', genome_length=118274340, write=FALSE){
+
+featureEnrichment <- function(features='data/genomic_features.txt', genome_length=118274340, print=NA){
   genome_features<-read.delim(features, header = T)
   snv_data<-getData()
   mutCount<-nrow(snv_data)
@@ -591,21 +585,25 @@ featureEnrichment <- function(features='data/genomic_features.txt', genome_lengt
   featuresFC<-dplyr::arrange(featuresFC,desc(abs(as.numeric(Log2FC))))
   featuresFC$Log2FC<-round(as.numeric(featuresFC$Log2FC), 1)
 
-  if(write){
+  if(!is.na(print)){
     featuresFC <- filter(featuresFC, observed >= 5)
     first.step <- lapply(featuresFC, unlist)
     second.step <- as.data.frame(first.step, stringsAsFactors = F)
-    ggpubr::ggtexttable(second.step, rows = NULL, theme = ttheme("mGreen"))
+
+    ggtexttable(second.step, rows = NULL, theme = ttheme("mGreen"))
+
     feat_enrichment_table <- paste("feature_enrichment_table.tiff")
     cat("Writing to file: ", 'plots/', feat_enrichment_table, sep = '')
+
     ggsave(paste("plots/", feat_enrichment_table, sep=""), width = 5.5, height = (nrow(featuresFC)/3), dpi=300)
-  } else{
-    return(featuresFC)
+
   }
+
+  else{ return(featuresFC) }
 }
 
 
-featureEnrichmentPlot <- function(write=FALSE) {
+featureEnrichmentPlot <- function() {
   feature_enrichment<-featureEnrichment()
 
   feature_enrichment$feature <- as.character(feature_enrichment$feature)
@@ -628,12 +626,11 @@ featureEnrichmentPlot <- function(write=FALSE) {
           axis.text = element_text(size=20)
     )
 
-  if(write){
-    feat_plot <- paste("feat_plot.pdf")
-    cat("Writing file", feat_plot, "\n")
-    ggsave(paste("plots/", feat_plot, sep=""), width = 5, height = 10)
-  }
+  feat_plot <- paste("feat_plot.pdf")
+  cat("Writing file", feat_plot, "\n")
+  ggsave(paste("plots/", feat_plot, sep=""), width = 5, height = 10)
   p
+
 }
 
 
@@ -654,21 +651,25 @@ featureEnrichmentPlot <- function(write=FALSE) {
 #' @import ggpubr
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export
-geneEnrichment <- function(gene_lengths_in="data/gene_lengths.txt", n=10, genome_length=118274340, write=FALSE){
-  snv_data <- getData() %>%
-    dplyr::filter(gene != "intergenic") %>%
-    droplevels()
+
+geneEnrichment <- function(gene_lengths_in="data/gene_lengths.txt", n=10, genome_length=118274340, print=NA){
+  gene_lengths<-read.delim(gene_lengths_in, header = T)
+  snv_data<-getData()
+  snv_data<-filter(snv_data, gene != "intergenic")
+
+  gene_lengths<-filter(gene_lengths, length > 1000)
+  gene_lengths<-droplevels(gene_lengths)
+
+  snv_data<-droplevels(snv_data)
 
   snv_count<-nrow(snv_data)
 
-  gene_lengths <- read.delim(gene_lengths_in, header = T)
-
-  gene_lengths <- gene_lengths %>%
-    dplyr::filter(length > 1000) %>%
-    dplyr::select(gene, length) %>%
-    droplevels()
 
   genes<-setNames(as.list(gene_lengths$length), gene_lengths$gene)
+
+  # Only keep relevant cols
+  gene_lengths<-gene_lengths[,c("gene","length")]
+  gene_lengths<-droplevels(gene_lengths)
 
   snv_data<-join(gene_lengths, snv_data, 'gene', type = 'left')
 
@@ -715,29 +716,29 @@ geneEnrichment <- function(gene_lengths_in="data/gene_lengths.txt", n=10, genome
   # Filter for genes with few observations
 
   genesFC <- genesFC %>%
-    dplyr::filter(observed >= n) %>%
-    dplyr::mutate(expected = round(as.numeric(expected),digits=3)) %>%
-    dplyr::mutate(log2FC = round(as.numeric(log2FC),digits=2)) %>%
-    dplyr::mutate(p_val = as.numeric(p_val)) %>%
-    dplyr::mutate(eScore = abs(log2FC) * -log10(p_val)) %>%
-    dplyr::mutate(eScore = round(as.numeric(eScore),digits=2)) %>%
-    dplyr::select(gene, observed, expected, log2FC, test, sig_val, p_val, eScore) %>%
+    filter(observed >= n) %>%
+    mutate(expected = round(as.numeric(expected),digits=3)) %>%
+    mutate(log2FC = round(as.numeric(log2FC),digits=2)) %>%
+    mutate(p_val = as.numeric(p_val)) %>%
+    mutate(eScore = abs(log2FC) * -log10(p_val)) %>%
+    mutate(eScore = round(as.numeric(eScore),digits=2)) %>%
+    select(gene, observed, expected, log2FC, test, sig_val, p_val, eScore) %>%
     dplyr::arrange(-eScore, p_val, -abs(log2FC)) %>%
     droplevels()
 
-  if(write){
+  if(!is.na(print)){
     cat("printing")
     first.step <- lapply(genesFC, unlist)
     second.step <- as.data.frame(first.step, stringsAsFactors = F)
     arrange(second.step,desc(as.integer(log2FC)))
 
-    ggpubr::ggtexttable(second.step, rows = NULL, theme = ttheme("mGreen"))
+    ggtexttable(second.step, rows = NULL, theme = ttheme("mGreen"))
 
     gene_enrichment_table <- paste("gene_enrichment_table.tiff")
     ggsave(paste("plots/", gene_enrichment_table, sep=""), width = 5.2, height = (nrow(genesFC)/3), dpi=300)
-  } else{
-    return(genesFC)
   }
+
+  else{ return(genesFC) }
 }
 
 
@@ -794,618 +795,46 @@ EnrichmentVolcano <- function(d){
   p
 }
 
-
-#' snvinGene
-#'
-#' Plot all snvs found in a given gene
-#' @description Plot all snvs found in a given gene.
-#' A 'gene_lengths' file must be provided with the following fields (cols 1..6 required)
-#' gene length chrom    start      end      tss scaling_factor
-#' This can be generated using the script 'script/genomic_features.pl' and a genome .gtf file
-#' @param gene_lengths File containing all genes and their lengths (as generated by 'script/genomefeatures.pl') [Default 'data/gene_lengths.txt']
-#' @param gene2plot Name of the gene to plot
-#' @import ggplot2 dplyr
-#' @keywords gene
-#' @export
-
-snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='kuz', annotated=TRUE, col_by_status=TRUE, write=FALSE){
-  gene_lengths <- read.delim(gene_lengths, header = T)
-
-  region <- gene_lengths %>%
-    dplyr::filter(gene == gene2plot) %>%
-    droplevels()
-
-  gene_length <-(region$end-region$start)
-  wStart<-(region$start - gene_length/10)
-  wEnd<-(region$end + gene_length/10)
-  wChrom<-as.character(region$chrom)
-  wTss<-suppressWarnings(as.numeric(levels(region$tss))[region$tss])
-
-  snv_data<-getData() %>%
-    dplyr::filter(chrom == wChrom & pos >= wStart & pos <= wEnd)
-
-  if(nrow(snv_data) == 0){
-    stop(paste("There are no snvs in", gene2plot, "- Exiting", "\n"))
-  }
-
-  snv_data$colour_var <- snv_data$feature
-
-  if(annotated){
-    snv_data$colour_var <- snv_data$variant_type
-    if(col_by_status)
-      snv_data$colour_var <- snv_data$status
-  }
-
-  p <- ggplot(snv_data)
-  p <- p + geom_point(aes(pos/1000000, sample, colour = colour_var, size = 1.5), position=position_jitter(width=0, height=0.2))
-  p <- p + guides(size = FALSE, sample = FALSE)
-  p <- p + cleanTheme() +
-    theme(axis.title.y=element_blank(),
-          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
-          axis.text.y = element_text(size = 30)
-    )
-  p <- p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(round(wStart/1000000, digits = 2),round(wEnd/1000000, digits = 2),by=0.05), limits=c(wStart/1000000, wEnd/1000000))
-  p <- p + annotate("rect", xmin=region$start/1000000, xmax=region$end/1000000, ymin=0, ymax=0.3, alpha=.2, fill="skyblue")
-  p <- p + geom_vline(xintercept = wTss/1000000, colour="red", alpha=.7, linetype="solid")
-
-  p <- p + geom_segment(aes(x = wTss/1000000, y = 0, xend= wTss/1000000, yend = 0.1), colour="red")
-  middle<-((wEnd/1000000+wStart/1000000)/2)
-  p <- p + annotate("text", x = middle, y = 0.15, label=gene2plot, size=6)
-  p <- p + ggtitle(paste("Chromosome:", wChrom))
-  if(write){
-    hit_gene<-paste(gene2plot, "_hits.pdf", sep='')
-    cat("Writing file", hit_gene, "\n")
-    ggsave(paste("plots/", hit_gene, sep=""), width = 10, height = 10)
-  }
-  p
-}
-
-
-#' featuresHit
-#'
-#' Show top hit features
-#' @import ggplot2
-#' @keywords features
-#' @export
-
-featuresHit <- function(..., write=FALSE){
-  snv_data<-getData(...)
-
-  # To condense exon counts into "exon"
-  snv_data$feature<-as.factor(gsub("exon_.*", "exon", snv_data$feature))
-
-  # Reoders descending
-  snv_data$feature<-factor(snv_data$feature, levels = names(sort(table(snv_data$feature), decreasing = TRUE)))
-
-  snv_data <- snv_data %>%
-    dplyr::group_by(feature) %>%
-    dplyr::add_tally() %>%
-    ungroup() %>%
-    dplyr::filter(n >= 5) %>%
-    droplevels()
-  #cols<-setCols(snv_data, "feature")
-
-  p <- ggplot(snv_data)
-  p <- p + geom_bar(aes(feature, fill = feature))
-  #p<-p + cols
-  p <- p + cleanTheme() +
-    theme(axis.title.x=element_blank(),
-          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"))
-  p <- p + scale_x_discrete(expand = c(0.01, 0.01))
-  p <- p + scale_y_continuous(expand = c(0.01, 0.01))
-
-  # colour to a pub palette:
-  # p<-p + ggpar(p, palette = 'jco')
-
-  if(write){
-    features_outfile<-paste("hit_features_count.pdf")
-    cat("Writing file", features_outfile, "\n")
-    ggsave(paste("plots/", features_outfile, sep=""), width = 20, height = 10)
-  }
-  p
-}
-
-
-#' geneHit
-#'
-#' Show top hit genes
-#' @import dplyr
-#' @keywords gene
-#' @param n Show top n hits [Default 10]
-#' @export
-geneHit <- function(..., n=10){
-  snv_data<-getData(...)
-  snv_data<-filter(snv_data, gene != "intergenic")
-
-  hit_count<-as.data.frame(sort(table(unlist(snv_data$gene)), decreasing = T))
-
-  colnames(hit_count)<- c("gene", "count")
-  head(hit_count, n)
-}
-
-
-
-#' triFreq
-#'
-#' This function counts the number of times each triunucleotide is found in a supplied genome
-#' @param genome BS.genome file defaults to BSgenome.Dmelanogaster.UCSC.dm6
-#' @param count Output total counts instead of frequency if set [Default no]
-#' @import dplyr
-#' @keywords trinucleotides
-#' @export
-#' @return Dataframe of trinucs and freqs (or counts if count=1)
-
-triFreq <- function(genome=NULL, count=FALSE){
-  if(missing(genome)){
-    cat("No genome specfied, defaulting to 'BSgenome.Dmelanogaster.UCSC.dm6'\n")
-    library(BSgenome.Dmelanogaster.UCSC.dm6, quietly = TRUE)
-    genome <- BSgenome.Dmelanogaster.UCSC.dm6
-  }
-
-  params <- new("BSParams", X = Dmelanogaster, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
-  snv_data<-as.data.frame(bsapply(params))
-  snv_data$genome<-as.integer(rowSums(snv_data))
-  snv_data$genome_adj<-(snv_data$genome*2)
-
-  if(count){
-    tri_count<-snv_data['genome_adj']
-    tri_count<-cbind(tri = rownames(tri_count), tri_count)
-    colnames(tri_count) <- c("tri", "count")
-    rownames(tri_count) <- NULL
-    return(tri_count)
-  }
-  else{
-    snv_data$x <- (1/snv_data$genome)
-    scaling_factor<-snv_data['x']
-    return(scaling_factor)
-  }
-}
-
-
-
-
-
-
-
-
-
-
-# Functions to calculate the distance
-# from each breakpoint to user-provided loci (e.g. TSS)
-
-#' generateData
-#' Prepare data for dist2motif
-#' @keywords simulate
-#' @import ggplot2
-#' @import dplyr
-#' @import colorspace
-#' @import RColorBrewer
-#' @export
-generateData <- function(..., breakpoints=NA, sim=NA, keep=NULL){
-  if(is.na(breakpoints)){
-    # if(!missing(keep)){
-    #   real_data <- notchFilt(..., keep=keep)
-    # } else {
-    real_data <- getData(..., genotype=='somatic_tumour', !sample %in% c("A373R7", "A512R17", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9"))
-    # }
-    real_data <- real_data %>%
-      dplyr::filter(chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" ) %>%
-      dplyr::mutate(pos = bp) %>%
-      dplyr::select(chrom, pos) %>%
-      droplevels()
-  } else{
-    real_data <- read.table(breakpoints, header = F)
-    if(is.null(real_data$V3)){
-      real_data$V3 <- real_data$V2 + 2
-    }
-    colnames(real_data) <- c("chrom", "start", "end")
-    real_data <- real_data %>%
-      dplyr::filter(chrom == "2L" | chrom == "2R" | chrom == "3L" | chrom == "3R" | chrom == "X" ) %>%
-      dplyr::mutate(pos = (end+start)/2) %>%
-      dplyr::select(chrom, pos) %>%
-      droplevels()
-  }
-
-  if (!is.na(sim)) {
-    byIteration <- list()
-    #run each iteration
-    for (i in 1:sim){
-      cat("Running simulation", i, "of", sim, "\n")
-      simByChrom <- list()
-
-      for (c in levels(real_data$chrom)){
-        hitCount <- nrow(real_data[real_data$chrom== c,])
-        hitCount <- (hitCount*10)
-        if (i == 1){
-          cat(paste("Simulating", hitCount, "breakpoints on chromosome", c), "\n")
-        }
-        bp_data <- bpSim(nSites = hitCount, byChrom = c)
-        bp_data$iteration <- i
-        simByChrom[[c]] <- bp_data
-      }
-      result <- as.data.frame(do.call(rbind, simByChrom))
-      rownames(result) <- NULL
-      byIteration[[i]] <- result
-    }
-
-    #combine each iteration into one data frame
-    # final <- dplyr::bind_rows(byIteration)
-    final <- as.data.frame(do.call(rbind, byIteration))
-    final$iteration <- as.factor(final$iteration)
-
-    return(final)
-  } else{
-    cat("Using real data", "\n")
-    real_data$iteration <- as.factor(1)
-    return(real_data)
-  }
-}
-
-
-
-
-#' dist2Motif2
-#' Calculate the distance from each breakpoint to closest motif in a directory of files
-#' @keywords motif
-#' @import ggplot2 dplyr tidyr RColorBrewer
-#' @export
-dist2motif2 <- function(..., feature_file = NA, featureDir = 'rawdata/features/', sim=NA, keep=NULL, position = 'centre') {
-
-  snv_data <- generateData(..., confidence=='precise', breakpoints=breakpoints, sim=sim, keep=keep)
-
-  cat("Calculating distances to", position, 'of regions', sep = " ", "\n")
-
-  svCount <- table(bp_data$chrom)
-  bp_data <- subset(bp_data, chrom %in% names(svCount[svCount >= 5]))
-  # bp_data <- droplevels(bp_data)
-
-  minDist <- function(p) {
-    index <- which.min(abs(tss_df$pos - p))
-    closestTss <- tss_df$pos[index]
-    chrom <- as.character(tss_df$chrom[index])
-    dist <- (p - closestTss)
-    list(p, closestTss, dist, chrom)
-  }
-
-  scores <- list()
-
-  fileNames <- dir(featureDir, pattern = ".bed")
-  # cat("Analysing all files in directory:", bedFiles, "\n")
-  for (i in 1:length(fileNames)){
-    filename <- basename(tools::file_path_sans_ext(fileNames[i]))
-    parts <- unlist(strsplit(filename, split = '\\.'))
-    feature <- parts[1]
-
-    cat("Analysing file:", fileNames[i], 'with feature:', feature, "\n")
-
-    feature_locations <- read.table(paste(featureDir, fileNames[i], sep='/'), header = F)
-    feature_locations <- feature_locations[,c(1,2,3)]
-    colnames(feature_locations) <- c("chrom", "start", "end")
-
-    # fCount <- table(feature_locations$chrom)
-    #
-    # bp_data <- subset(bp_data, chrom %in% names(svCount[svCount >= 5]))
-    #
-
-    feature_locations <- feature_locations %>%
-      dplyr::filter(chrom %in% levels(bp_data$chrom))
-
-
-    if(position == 'centre'){
-      feature_locations <- feature_locations %>%
-        dplyr::mutate(end = as.integer(((end+start)/2)+1)) %>%
-        dplyr::mutate(pos = as.integer(end-1)) %>%
-        dplyr::select(chrom, pos)
-    } else if(position == 'edge'){
-      feature_locations <- feature_locations %>%
-        tidyr::gather(c, pos, start:end, factor_key=TRUE) %>%
-        dplyr::select(chrom, pos)
-    }
-    byIteration <- list()
-    for (j in levels(bp_data$iteration)){
-      byChrom <- list()
-      df1 <- dplyr::filter(bp_data, iteration == j)
-      for (c in levels(bp_data$chrom)) {
-        df <- dplyr::filter(df1, chrom == c)
-        tss_df <- dplyr::filter(feature_locations, chrom == c)
-        dist2tss <- lapply(df$pos, minDist)
-        dist2tss <- do.call(rbind, dist2tss)
-        new <- data.frame(matrix(unlist(dist2tss), nrow=nrow(df)))
-        new$iteration <- j
-        new$feature <- as.factor(feature)
-        colnames(new) <- c("bp", "closest_tss", "min_dist", "chrom", "iteration", "feature")
-        byChrom[[c]] <- new
-      }
-      perIter <- do.call(rbind, byChrom)
-      byIteration[[j]] <- perIter
-    }
-    dist2feat <- do.call(rbind, byIteration)
-    scores[[i]] <- dist2feat
-  }
-
-  final <- do.call(rbind, scores)
-  rownames(final) <- NULL
-  final$iteration <- as.factor(final$iteration)
-  final$chrom <- as.character(final$chrom)
-  final$min_dist <- as.numeric(as.character(final$min_dist))
-
-
-  return(final)
-}
-
-
-# distOverlay
-#'
-#' Calculate the distance from each breakpoint to closest motif
-#' Overlay the same number of random simulated breakpoints
-#' @keywords motif
-#' @import dplyr
-#' @import ggplot2
-#' @import ggpubr
-#' @import RColorBrewer
-#' @export
-distOverlay2 <- function(..., breakpoints = NA, featureDir = 'rawdata/features/', from='bps', lim=2.5, n=2, plot = TRUE, keep=NULL, position = 'centre') {
-  scaleFactor <- lim*1000
-  real_data <- dist2motif2(..., breakpoints = breakpoints, featureDir = featureDir, keep=keep, position = position)
-  sim_data <- dist2motif2(..., featureDir = featureDir, sim = n, position = position)
-
-  real_data$Source <- as.factor("Real")
-  sim_data$Source <- as.factor("Sim")
-
-  dummy_iterations <- list()
-  for (i in levels(sim_data$iteration)){
-    real_data$iteration <- as.factor(i)
-    dummy_iterations[[i]] <- real_data
-  }
-  real_data <- do.call(rbind, dummy_iterations)
-  rownames(real_data) <- NULL
-
-  real_data$iteration <- factor(real_data$iteration, levels = 1:n)
-  sim_data$iteration <- factor(sim_data$iteration, levels = 1:n)
-
-  # Perform significance testing
-  pVals_and_df <- simSig2(r = real_data, s = sim_data, max_dist = scaleFactor)
-
-  combined <- pVals_and_df[[1]]
-  pVals <- pVals_and_df[[2]]
-
-  if(plot==T){
-    print(plotdistanceOverlay2(..., d=combined, from=from, facetPlot=FALSE, byChrom=byChrom, lim=lim, n=n, position=position ))
-    print(pVals)
-  }else{
-    print(pVals)
-    return(list(combined, pVals))
-  }
-}
-
-
-#' plotdistanceOverlay
-#'
-#' Plot the distance overlay
-#' @param d Dataframe containing combined real + sim data (d <- distOverlay())
-#' @import dplyr ggplot2 RColorBrewer scales colorspace cowplot
-#' @keywords distance
-#' @export
-plotdistanceOverlay2 <- function(..., d, from='bps', lim=2.5, n=2, position='centre', histo=FALSE, binWidth = 500){
-  grDevices::pdf(NULL)
-
-  scaleFactor <- lim*1000
-  scale <- "(Kb)"
-
-  lims <- c(as.numeric(paste("-", scaleFactor, sep = '')), scaleFactor)
-  brks <- c(as.numeric(paste("-", scaleFactor, sep = '')),
-            as.numeric(paste("-", scaleFactor/10, sep = '')),
-            scaleFactor/10,
-            scaleFactor)
-  labs <- as.character(brks/1000)
-  expnd <- c(0, 0)
-
-  new <- d %>%
-    mutate(iteration = as.factor(ifelse(Source=='Real', 0, iteration)))
-
-  real_fill <- '#3D9DEB'
-  iterFill <- colorspace::rainbow_hcl(n)
-
-  colours <- c(real_fill, iterFill)
-
-  plts <- list()
-  for (i in 1:(length(levels(new$feature)))){
-    d <- new %>%
-      filter(feature == levels(new$feature)[i])
-
-    p <- ggplot(d)
-    if(histo) {
-      p <- p + geom_histogram(data=d[d$Source=="Sim",], aes(min_dist, fill = Source, group = iteration), alpha = 0.1, binwidth = binWidth,  position="identity")
-      p <- p + geom_histogram(data=d[d$Source=="Real",], aes(min_dist, fill = Source, group = iteration), alpha = 0.5, binwidth = binWidth, position="identity")
-      p <- p + scale_fill_manual(values=colours)
-      p <- p + scale_y_continuous(paste("Count per", binWidth, "bp bins"))
-    } else {
-      p <- p + geom_line(data=d[d$Source=="Real",], aes(min_dist, colour = iteration), size=2, stat='density')
-      p <- p + geom_line(aes(min_dist, group = interaction(iteration, Source), colour = iteration), alpha = 0.7, size=1, stat='density')
-      p <- p + scale_color_manual(values=colours)
-    }
-
-    p <- p + scale_x_continuous(
-      limits = lims,
-      breaks = brks,
-      expand = expnd,
-      labels = labs
-    )
-    p <- p +
-      theme(
-        legend.position = "none",
-        panel.background = element_blank(),
-        plot.background = element_rect(fill = "transparent", colour = NA),
-        axis.line.x = element_line(color = "black", size = 0.5),
-        axis.text.x = element_text(size = 16),
-        axis.line.y = element_line(color = "black", size = 0.5),
-        plot.title = element_text(size=22, hjust = 0.5)
-      )
-    p <- p + labs(title = paste(d$feature, "\n", position))
-    plts[[i]] <- p
-  }
-  cat("Plotting", length(levels(new$feature)), "plots", "\n")
-  grDevices::dev.off()
-  cowplot::plot_grid(plotlist=plts)
-}
-
-
-simSig2 <- function(r, s, test=NA, max_dist=5000){
-  cat("Calculating descriptive statistics\n")
-  arrange_data <- function(x){
-    x <- x %>%
-      group_by(iteration, feature) %>%
-      dplyr::mutate( count = n(),
-                     median = median(min_dist),
-                     mean = mean(min_dist),
-                     sd = sd(min_dist),
-                     Source = Source) %>%
-      dplyr::filter(abs(min_dist) <= max_dist ) %>%
-      ungroup()
-    return(x)
-  }
-  simulated <- arrange_data(s)
-  real <- arrange_data(r)
-
-  combined <- suppressWarnings(dplyr::full_join(real, simulated))
-  combined$Source <- as.factor(combined$Source)
-
-  simbyFeat = list()
-  for (f in levels(combined$feature)){
-    pVals = list()
-    c <- dplyr::filter(combined, feature==f)
-    for(i in levels(c$iteration)){
-      df <- dplyr::filter(c, iteration==i)
-      rl <- dplyr::filter(df, Source == "Real")
-      sm <- dplyr::filter(df, Source == "Sim")
-      result1 <- tryCatch(suppressWarnings(ks.test(rl$min_dist, sm$min_dist)), error=function(err) NA)
-      result1 <- suppressWarnings(ks.test(rl$min_dist, sm$min_dist))
-      ksPval <- round(result1$p.value, 4)
-
-      result2 <- car::leveneTest(df$min_dist, df$Source, center='median')
-      result3 <- stats::bartlett.test(df$min_dist, df$Source)
-      bPval <- round(result3$p.value, 4)
-      lPval <- round(result2$`Pr(>F)`[1], 4)
-      rmed <- round(median(rl$min_dist)/1000, 2)
-      smed <- round(median(sm$min_dist)/1000, 2)
-      rsd <- round(sd(rl$min_dist)/1000, 2)
-      ssd <- round(sd(sm$min_dist)/1000, 2)
-      rKurtosis <- round(kurtosis(rl$min_dist), 2)
-      sKurtosis <- round(kurtosis(sm$min_dist), 2)
-      rSkew <- round(skewness(rl$min_dist), 2)
-      sSkew <- round(skewness(sm$min_dist), 2)
-      # fStat <- var.test(min_dist ~ Source , df, alternative = "two.sided")
-      # fRatio <- round(fStat$statistic, 2)
-      # fStat <- round(fStat$p.value, 4)
-
-      sig <- ifelse(lPval <= 0.001, "***",
-                    ifelse(lPval <= 0.01, "**",
-                           ifelse(lPval <= 0.05, "*", "")))
-
-      vals <- data.frame(iteration = i,
-                         feature = f,
-                         KS = ksPval,
-                         Levenes = lPval,
-                         # Bartlett = bPval,
-                         # Fstat_ratio = fRatio,
-                         # Fstat = fStat,
-                         real_median = rmed,
-                         sim_median = smed,
-                         real_sd = rsd,
-                         sim_sd = ssd,
-                         real_kurtosis = rKurtosis,
-                         sim_kurtosis = sKurtosis,
-                         real_skew = rSkew,
-                         sim_skew = sSkew,
-                         sig = sig)
-      pVals[[i]] <- vals
-    }
-
-    pVals_df <- do.call(rbind, pVals)
-    simbyFeat[[f]] <- pVals_df
-  }
-
-  combined_sig_vals <- do.call(rbind, simbyFeat)
-
-  rownames(combined_sig_vals) <- NULL
-  combined_sig_vals <- combined_sig_vals %>%
-    arrange(Levenes, KS)
-
-  # print(pVals_df, row.names = FALSE)
-
-  ## Boxplot per chrom
-
-  # colours <- c("#E7B800", "#00AFBB")
-  # cat("Plotting qq plot of min distances\n")
-  # qqnorm(combined$min_dist)
-  # qqline(combined$min_dist, col = 2)
-
-  # p <- ggplot(combined)
-  # p <- p + geom_boxplot(aes(chrom, min_dist, fill = Source), alpha = 0.6)
-  # p <- p + scale_y_continuous("Distance", limits=c(-5000, 5000))
-  # p <- p + facet_wrap(~iteration, ncol = 2)
-  # p <- p + scale_fill_manual(values = colours)
-
-  # p
-  return(list(combined, combined_sig_vals))
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#################
-## Development ##
-#################
-
-geneEnrichmentPlot <- function(n=0, highlight='kuz', write=FALSE) {
+geneEnrichmentPlot <- function(n=0) {
   gene_enrichment<-geneEnrichment(n=n)
 
   #gene_enrichment<-filter(gene_enrichment, fpkm > 0)
 
-  gene_enrichment <- gene_enrichment %>%
-    dplyr::mutate(gene = as.character(gene)) %>%
-    dplyr::mutate(log2FC = as.numeric(log2FC)) %>%
-    dplyr::mutate(test = as.character(ifelse(log2FC>=0, "enriched", "depleted")))
+  gene_enrichment$gene <- as.character(gene_enrichment$gene)
+  gene_enrichment$fc <- as.numeric(gene_enrichment$fc)
+  gene_enrichment$log2FC <- as.numeric(gene_enrichment$log2FC)
 
-  gene_enrichment <- transform(gene_enrichment, gene = reorder(gene, -abs(log2FC)))
+  gene_enrichment <- transform(gene_enrichment, gene = reorder(gene, -fc))
 
-  highlightedGene <- dplyr::filter(gene_enrichment, gene == highlight)
+  gene_enrichment$test <- ifelse(gene_enrichment$log2FC>=0, "enriched", "depleted")
+
+
+  gene_enrichment<-droplevels(gene_enrichment)
+
+  highlightedGene <- filter(gene_enrichment, gene == "kuz")
   highlightedGene <- droplevels(highlightedGene)
 
-  p <- ggplot(gene_enrichment)
-  p <- p + geom_bar(aes(gene, log2FC, fill = as.character(test)), stat="identity")
+  p<-ggplot(gene_enrichment)
+  p<-p + geom_bar(aes(gene, log2FC, fill = as.character(test)), stat="identity")
   #p<-p + geom_bar(data=highlightedGene, aes(gene, log2FC, fill="red"), colour="black", stat="identity")
-  p <- p + guides(fill=FALSE)
-  p <- p + scale_x_discrete("Gene")
-  p <- p + cleanTheme() +
+  p<-p + guides(fill=FALSE)
+  p<-p + scale_x_discrete("Gene")
+  p<-p + cleanTheme() +
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
           axis.text.x = element_text(angle = 90, hjust=1),
           axis.text = element_text(size=7)
     )
   #p<-p + coord_flip()
   #p<-p + scale_y_reverse()
-  if(write){
-    gene_enrichment_plot <- paste("gene_enrichment.pdf")
-    cat("Writing file", gene_enrichment_plot, "\n")
-    ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 25, height = 5)
-  }
-  p
+
+  gene_enrichment_plot <- paste("gene_enrichment.pdf")
+  cat("Writing file", gene_enrichment_plot, "\n")
+  ggsave(paste("plots/", gene_enrichment_plot, sep=""), width = 25, height = 5)
+
+
 }
 
-### Development
+
 
 geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   gene_enrichment<-geneEnrichment(n=n)
@@ -1510,8 +939,8 @@ geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
   #           )
   #
   combined_plots <- ggarrange(p, p2,
-                              labels = c("A", "B"),
-                              ncol = 1, nrow = 2)
+            labels = c("A", "B"),
+            ncol = 1, nrow = 2)
 
   gene_len<-paste("gene_lengths_count_model_log10.pdf")
   cat("Writing file", gene_len, "\n")
@@ -1519,6 +948,174 @@ geneLenPlot <- function(n=0,gene_lengths_in="data/gene_lengths.txt"){
 
   combined_plots
 }
+
+#' snvinGene
+#'
+#' Plot all snvs found in a given gene
+#' @description Plot all snvs found in a given gene.
+#' A 'gene_lengths' file must be provided with the following fields (cols 1..6 required)
+#' gene length chrom    start      end      tss scaling_factor
+#' This can be generated using the script 'script/genomic_features.pl' and a genome .gtf file
+#' @param gene_lengths File containing all genes and their lengths (as generated by 'script/genomefeatures.pl') [Default 'data/gene_lengths.txt']
+#' @param gene2plot Name of the gene to plot
+#' @import ggplot2
+#' @keywords gene
+#' @export
+
+snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='dnc'){
+  gene_lengths<-read.delim(gene_lengths, header = T)
+  region<-filter(gene_lengths, gene == gene2plot)
+
+  wStart<-(region$start - 100)
+  wEnd<-(region$end + 100)
+  wChrom<-as.character(region$chrom)
+  wTss<-suppressWarnings(as.numeric(levels(region$tss))[region$tss])
+  snv_data<-getData()
+  snv_data<-filter(snv_data, chrom == wChrom & pos >= wStart & pos <= wEnd)
+
+  if(nrow(snv_data) == 0){
+    stop(paste("There are no snvs in", gene2plot, "- Exiting", "\n"))
+  }
+
+
+
+  p<-ggplot(snv_data)
+  p<-p + geom_point(aes(pos/1000000, sample, colour = feature, size = 1.5), position=position_jitter(width=0, height=0.05))
+  p<-p + guides(size = FALSE, sample = FALSE)
+  p<-p + cleanTheme() +
+    theme(axis.title.y=element_blank(),
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
+          axis.text.y = element_text(size = 30)
+    )
+  p<-p + scale_x_continuous("Mbs", expand = c(0,0), breaks = seq(round(wStart/1000000, digits = 2),round(wEnd/1000000, digits = 2),by=0.05), limits=c(wStart/1000000, wEnd/1000000))
+  p<-p + annotate("rect", xmin=region$start/1000000, xmax=region$end/1000000, ymin=0, ymax=0.3, alpha=.2, fill="skyblue")
+  p<-p + geom_vline(xintercept = wTss/1000000, colour="red", alpha=.7, linetype="solid")
+
+  p<-p + geom_segment(aes(x = wTss/1000000, y = 0, xend= wTss/1000000, yend = 0.1), colour="red")
+  middle<-((wEnd/1000000+wStart/1000000)/2)
+  p <- p + annotate("text", x = middle, y = 0.15, label=gene2plot, size=6)
+  p<-p + ggtitle(paste("Chromosome:", wChrom))
+
+  hit_gene<-paste(gene2plot, "_hits.pdf", sep='')
+  cat("Writing file", hit_gene, "\n")
+  ggsave(paste("plots/", hit_gene, sep=""), width = 10, height = 10)
+
+  # 19  66520     66520     G/A   +    var1
+  vep_data<-select(snv_data, "chrom", "pos", "ref", "alt", "sample")
+  vep_data$pos2<-vep_data$pos
+  vep_data$mut<-paste(vep_data$ref,vep_data$alt, sep='/')
+  vep_data$ref<-NULL
+  vep_data$alt<-NULL
+  vep_data$num<-1
+  #colnames(vep_data)<-c("#CHROM",	"POS", "ID",	'REF', "ALT", "QUAL", "FILTER", "INFO")
+  colnames(vep_data)<-NULL
+  vep_data<-as.data.frame(vep_data[,c(1,2,4,5,6,3)])
+
+  print(vep_data, right=FALSE, row.names = FALSE)
+  p
+}
+
+
+#' featuresHit
+#'
+#' Show top hit features
+#' @import ggplot2
+#' @keywords features
+#' @export
+
+featuresHit <- function(){
+  snv_data<-getData()
+
+  # To condense exon counts into "exon"
+  snv_data$feature<-as.factor(gsub("exon_.*", "exon", snv_data$feature))
+
+  # Reoders descending
+  snv_data$feature<-factor(snv_data$feature, levels = names(sort(table(snv_data$feature), decreasing = TRUE)))
+
+  snv_data <- snv_data %>%
+    group_by(feature) %>%
+    add_tally() %>%
+    ungroup() %>%
+    filter(n >= 5)
+  #cols<-setCols(snv_data, "feature")
+
+  p<-ggplot(snv_data)
+  p<-p + geom_bar(aes(feature, fill = feature))
+  #p<-p + cols
+  p<-p + cleanTheme() +
+    theme(axis.title.x=element_blank(),
+          panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"))
+  p<-p + scale_x_discrete(expand = c(0.01, 0.01))
+  p<-p + scale_y_continuous(expand = c(0.01, 0.01))
+
+  # colour to a pub palette:
+  # p<-p + ggpar(p, palette = 'jco')
+
+  features_outfile<-paste("hit_features_count.pdf")
+  cat("Writing file", features_outfile, "\n")
+  ggsave(paste("plots/", features_outfile, sep=""), width = 20, height = 10)
+
+  p
+}
+
+
+#' geneHit
+#'
+#' Show top hit genes
+#' @import dplyr
+#' @keywords gene
+#' @param n Show top n hits [Default 10]
+#' @export
+
+geneHit <- function(n=10){
+  snv_data<-getData()
+  snv_data<-filter(snv_data, gene != "intergenic")
+
+  hit_count<-as.data.frame(sort(table(unlist(snv_data$gene)), decreasing = T))
+
+  colnames(hit_count)<- c("gene", "count")
+  head(hit_count, n)
+}
+
+
+
+#' triFreq
+#'
+#' This function counts the number of times each triunucleotide is found in a supplied genome
+#' @param genome BS.genome file defaults to BSgenome.Dmelanogaster.UCSC.dm6
+#' @param count Output total counts instead of frequency if set [Default no]
+#' @import dplyr
+#' @keywords trinucleotides
+#' @export
+#' @return Dataframe of trinucs and freqs (or counts if count=1)
+
+triFreq <- function(genome=NA, count=NA){
+  if(is.na(genome)){
+    cat("No genome specfied, defaulting to 'BSgenome.Dmelanogaster.UCSC.dm6'\n")
+    library(BSgenome.Dmelanogaster.UCSC.dm6, quietly = TRUE)
+    genome <- BSgenome.Dmelanogaster.UCSC.dm6
+  }
+
+  params <- new("BSParams", X = Dmelanogaster, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
+  snv_data<-as.data.frame(bsapply(params))
+  snv_data$genome<-as.integer(rowSums(snv_data))
+  snv_data$genome_adj<-(snv_data$genome*2)
+
+  if(!is.na(count)){
+    tri_count<-snv_data['genome_adj']
+    tri_count<-cbind(tri = rownames(tri_count), tri_count)
+    colnames(tri_count) <- c("tri", "count")
+    rownames(tri_count) <- NULL
+    return(tri_count)
+  }
+  else{
+    snv_data$x <- (1/snv_data$genome)
+    scaling_factor<-snv_data['x']
+    return(scaling_factor)
+  }
+
+}
+
 
 getPromoter <- function(gene_lengths_in="data/gene_lengths.txt"){
   gene_lengths<-read.delim(gene_lengths_in, header = T)
@@ -1532,18 +1129,6 @@ getPromoter <- function(gene_lengths_in="data/gene_lengths.txt"){
   colnames(gene_lengths)<-NULL
   return(gene_lengths)
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 dist2Feat <- function(feature_file="data/tss_locations.txt",sim=NA, print=0,send=0, feature='tss'){
   if(is.na(sim)){
@@ -2254,6 +1839,8 @@ mutationTypes <- function(allele_frequency = 0.1){
   snv_data <- snv_data %>%
     filter(dups!="TRUE") %>%
     filter(a_freq>=allele_frequency)
+
+
 
   library(dplyr)
   mutCounts <- snv_data %>%

@@ -3,51 +3,23 @@
 #' Function to clean cnv files
 #' @param infile File to process [Required]
 #' @keywords get
-#' @import dplyr plyr
+#' @import dplyr
 #' @export
 #' @return Dataframe
-getData <- function(..., infile = "data/annotated_snvs.txt", expression_data='data/isc_genes_rnaSeq.csv'){
 
-  cat("Filters applied:\n")
-  input_list <- as.list(substitute(list(...)))
-  lapply(X=input_list, function(x) {str(x);summary(x)})
+getData <- function(infile = "data/annotated_snvs.txt"){
+  data<-read.delim(infile, header = F)
 
-  snv_data<-read.delim(infile, header = T)
-  colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "af", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id")
+  colnames(data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "caller", "type", "feature", "gene", "")
+  levels(data$type) <- tolower(levels(data$type))
+  #data <- filter(data, type == 'germline')
 
-  # Read in tissue specific expression data
-  seq_data<-read.csv(header = F, expression_data)
-  colnames(seq_data)<-c('id', 'fpkm')
-
-  snv_data <- plyr::join(snv_data,seq_data,"id", type = 'left')
-
-  # Find vars called by both Mu and Var
-  # Must also filter one of these calls out...
-  snv_data$dups<-duplicated(snv_data[,1:3])
-  snv_data<- dplyr::mutate(snv_data, caller = ifelse(dups == "TRUE", 'varscan2_mutect2' , as.character(caller)))
-  excluded_samples <- c("A373R7", "A512R17", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9", "D050R01", "D050R03", "D050R05", "D050R07-1", "D050R07-2", "D050R10", "D050R12", "D050R14", "D050R16", "D050R18", "D050R20", "D050R22", "D050R24")
-
-  snv_data <- snv_data %>%
-    dplyr::filter(!sample %in% excluded_samples) %>%
-    dplyr::mutate(fpkm = ifelse(is.na(fpkm), 0, round(fpkm, 1))) %>%
-    dplyr::mutate(pos = as.numeric(pos),
-                  af = as.double(af)) %>%
-    dplyr::mutate(cell_fraction = ifelse(chrom %in% c('X', 'Y'), af,
-                                         ifelse(af*2>1, 1, af*2))) %>%
-    dplyr::filter(...) %>%
-    droplevels()
-  ##############
-  ## Filters ###
-  ##############
-
-  # Filter for calls made by both V and M
-  # snv_data<-filter(snv_data, caller == 'mutect2' | caller == 'varscan2_mutect2')
-
-  # Filter for old/new data
-  # cat("Filtering for old/new data\n")
-  # snv_data <- filter(snv_data, !grepl("^A|H", sample))
-
+  #filter on chroms
+  # data<-filter(data, chrom != "Y" & chrom != "4")
+  #filter out samples
+  # data<-filter(data, sample != "A373R1" & sample != "A373R7" & sample != "A512R17" )
+  data<-droplevels(data)
   dir.create(file.path("plots"), showWarnings = FALSE)
-
-  return(snv_data)
+  return(data)
 }
+
