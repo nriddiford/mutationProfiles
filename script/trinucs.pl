@@ -2,14 +2,13 @@
 use warnings;
 use strict;
 use Data::Dumper;
+use Data::Printer;
 use feature qw/ say /;
 use FindBin '$Script';
 # use FindBin qw($Bin);
 # use File::Spec;
 # use lib File::Spec->catdir($FindBin::Bin, '..', 'lib/');
-
 use vcfParse;
-
 use Bio::SeqIO;
 use File::Basename;
 
@@ -21,11 +20,17 @@ my $snv_dist_file = 'combined_snvs.txt';
 my $out_dir = '.';
 my $help;
 my $in_file; # Varscan native
+my $snpeff = 0;
+my $type = 'snv';
+my $caller;
 
 # Should add score threshold option
 GetOptions( 'genome=s'				  =>			\$genome_file,
             'infile=s'          =>      \$in_file,
+            'caller=s'          =>      \$caller,
             'vcf=s'						  =>			\$vcf_file,
+            'snpEff'            =>      \$snpeff,
+            'type=s'            =>      \$type,
      			  'out-file=s'        =>	 		\$snv_dist_file,
             'dir=s'             =>      \$out_dir,
      			  'help'         		  =>   		\$help
@@ -33,20 +38,30 @@ GetOptions( 'genome=s'				  =>			\$genome_file,
 
 if ($help)  { exit usage() }
 
-unless ( ($in_file or $vcf_file) and $genome_file ) { say "Both input file and a genome file required"; exit usage()  }
+unless ( ($in_file or $vcf_file) and $genome_file) {
+  say "Both input file and a genome file required";
+  exit usage()
+}
 
 my %chroms = qw / 2L 23513712 2R 25286936 3L 28110227 3R 32079331 4 1348131 X 23542271 Y 3667352 /;
 
 my $genome_ref = get_genome($genome_file);
 my %genome = %{$genome_ref};
 my $data_ref;
-$data_ref = parse_vcf($vcf_file) if $vcf_file;
-# $data_ref = parse_varscan($in_file) if $in_file;
-my ($filtered_data_ref) = get_context($data_ref);
-my ($sample, $snv_dist_ref) = count($filtered_data_ref);
+my $statements;
 
+($data_ref, $statements) = parse_vcf($vcf_file, $caller) if $vcf_file;
+
+if (scalar %{$statements}){
+  p(%{$statements});
+}
+
+$data_ref = parse_varscan($in_file) if $in_file;
+my ($filtered_data_ref) = get_context($data_ref, $type);
+my ($sample, $snv_dist_ref) = count($filtered_data_ref, $type);
 # Write to R-friendly dataframe
-write_dataframe($sample, $snv_dist_ref);
+
+write_dataframe($sample, $snv_dist_ref, $type);
 
 sub get_genome {
   my $genome_file = shift;
@@ -75,6 +90,7 @@ sub parse_varscan {
   open my $VAR_in, '<', $in_file or die $!;
 
   my ( $name, $extention ) = split(/\.([^.]+)$/, basename($in_file), 2);
+  say $name;
   my ($sample) = split(/_/, $name, 0);
 
   say "Parsing varscan native file...";
@@ -88,50 +104,79 @@ sub parse_varscan {
 }
 
 sub parse_vcf {
-  my $vcf_file = shift;
-
+  my ($vcf_file, $caller) = @_;
   my ( $name, $extention ) = split(/\.([^.]+)$/, basename($vcf_file), 2);
   my ($sample) = split(/_/, $name, 0);
 
-  say "Parsing VCF file...";
-  my (@vars, $caller);
+  say "Parsing VCF file... for sample $sample";
+  my @vars;
+  my %statements;
 
-  my ($snpData, $info, $filtered_vars ) = vcfParse::parse($vcf_file);
+  my ($snpData, $info, $filtered_vars, $heads, $sams) = vcfParse::parse($vcf_file);
+
+  for(@{$heads}){
+    if (m/mutect/i){
+      say "This is a mutect file";
+      $caller = 'mutect';
+      last;
+    }
+    elsif (m/varscan/i){
+      say "This is a varscan file";
+      $caller = 'varscan';
+      last;
+    }
+  }
 
     for ( sort { @{ $snpData->{$a}}[0] cmp @{ $snpData->{$b}}[0] or
           @{ $snpData->{$a}}[1] <=> @{ $snpData->{$b}}[1]
         }  keys %{ $snpData } ){
       my ( $chrom, $pos, $id, $ref, $alt, $quality_score, $filt, $info_block, $format_block, $tumour_info_block, $normal_info_block, $filters, $samples ) = @{ $snpData->{$_} };
 
+      my (%info)  = @{ $info->{$_}->[5] };
       my (%sample_info)  = @{ $info->{$_}->[6] };
+      my (@samples) = @{ $sams };
 
+      my ($tumour, $normal) = @samples;
+      if ($caller eq 'varscan'){
+        ($tumour, $normal) = reverse @samples;
+      }
+
+      my ($variant_type, $status, $hit_gene, $other) = ("", "", "", "");
+
+      if ($info{$_}{ANN}){
+        $statements{'caller'} = "This file has been annotated by SnpEff";
+        my @hits = split(/,/, $info{$_}{ANN});
+        my @annotated_parts = split(/\|/, $hits[0]);
+        ($variant_type, $status, $hit_gene) = @annotated_parts[1..3];
+        next unless length $hit_gene;
+      }
       my $af;
 
-      if ($sample_info{$_}{'TUMOR'}{'AF'}){
-        $caller = 'mutect2';
-        $af = $sample_info{$_}{'TUMOR'}{'AF'};
-      }
-      elsif ($sample_info{$_}{'TUMOR'}{'FREQ'}){
-        $caller = 'varscan2';
-        $af = $sample_info{$_}{'TUMOR'}{'FREQ'};
+      if ($caller eq 'varscan' and $sample_info{$_}{$tumour}{FREQ}){
+        $af = $sample_info{$_}{$tumour}{FREQ};
         ($af) =~ s/%//;
         $af = $af/100;
       }
-      push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $caller];
+      elsif ($caller eq 'mutect' and $sample_info{$_}{$tumour}{AF}){
+        $af = $sample_info{$_}{$tumour}{AF};
+      }
+
+      push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $caller, $variant_type, $status, $hit_gene];
     }
 
-  return(\@vars);
+  return(\@vars, \%statements);
 }
 
 
 sub get_context {
-  my $var_ref = shift;
+  my ($var_ref, $type) = @_;
+
   my (@filtered_vars, %snvs);
 
   foreach my $var ( @$var_ref ) {
-    my ($sample, $chrom, $pos, $ref, $alt, $af, $caller) = @$var;
+    my ($sample, $chrom, $pos, $ref, $alt, $af, $caller, $variant_type, $status, $hit_gene) = @$var;
 
-   	if ( length $ref == 1 and length $alt == 1 and $chroms{$chrom} ) {
+   	if ( (length $ref == 1 and length $alt == 1 and $chroms{$chrom}) or $type eq 'indel' ) {
 
       $snvs{$chrom}{$pos} = [$ref, $alt];
 
@@ -144,7 +189,7 @@ sub get_context {
 
       my ($trans_trinuc, $grouped_ref, $grouped_alt) = group_muts($trinuc, $ref, $alt);
 
-      push @filtered_vars, [ $sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt ];
+      push @filtered_vars, [ $sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt, $variant_type, $status, $hit_gene ];
     }
   }
   return(\@filtered_vars);
@@ -183,7 +228,7 @@ sub rev_comp {
 
 
 sub count {
-  my ($var_ref) = shift;
+  my ($var_ref, $type) = @_;
 
   my $all_snvs_count = 0;
 
@@ -192,10 +237,21 @@ sub count {
   my $sample;
 
   foreach my $var ( @$var_ref ) {
-    my ($samp, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt) = @$var;
+    my ($samp, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $trans_trinuc, $grouped_ref, $grouped_alt, $variant_type, $status, $hit_gene) = @$var;
     $sample = $samp;
 
-    push @snv_dist, [ $sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, "$ref>$alt", $trans_trinuc, "$grouped_ref>$grouped_alt" ];
+    if ($type eq 'indel'){
+      my $mut_type = 'INS';
+      if ($alt =~ /^\-/){
+        $mut_type = 'DEL';
+      }
+
+      push @snv_dist, [ $sample, $chrom, $pos, $ref, "\'$alt\'", $af, $caller, $trinuc, $mut_type, $trans_trinuc, $variant_type, $status, $hit_gene ];
+    }
+    else{
+      push @snv_dist, [ $sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, "$ref>$alt", $trans_trinuc, "$grouped_ref>$grouped_alt", $variant_type, $status, $hit_gene ];
+    }
+
 
     # debug($chrom, $pos, $ref, $alt, $trinuc) if $debug;
   }
@@ -203,18 +259,30 @@ sub count {
 }
 
 sub write_dataframe {
-  my ($sample, $snv_dist_ref) = @_;
+  my ($sample, $snv_dist_ref, $type) = @_;
 
   my $outlocation = $out_dir . "/" . $snv_dist_file;
   open my $snv_dist, '>>',  $outlocation or die $!;
+
+  # if ( -z $snv_dist ) {
+  #   say "Adding header to file";
+  # }
 
   say "Printing out genome-wide snv distribution '$outlocation' for $sample...";
 
   foreach my $var ( @$snv_dist_ref ) {
 
-    my ($sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $trans, $decomp_trinuc, $grouped_trans ) = @$var;
-    $sample = $sample;
-    print $snv_dist join("\t", $sample, $chrom, $pos, $ref, $alt, $trinuc, $trans, $decomp_trinuc, $grouped_trans, $af, $caller ) . "\n";
+    if ($type eq 'indel'){
+      my ($sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $mut_type, $trans_trinuc, $variant_type, $status, $hit_gene) = @$var;
+      print $snv_dist join("\t", $sample, $chrom, $pos, $ref, $alt, $trinuc, $mut_type, $trans_trinuc, $af, $caller, $variant_type, $status, $hit_gene ) . "\n";
+    }
+    else {
+      my ($sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $trans, $decomp_trinuc, $grouped_trans, $variant_type, $status, $hit_gene) = @$var;
+      print $snv_dist join("\t", $sample, $chrom, $pos, $ref, $alt, $trinuc, $trans, $decomp_trinuc, $grouped_trans, $af, $caller, $variant_type, $status, $hit_gene ) . "\n";
+    }
+
+
+    # snv2gene = $_ + $hit_feature, $hit_gene, $hit_id
   }
 }
 
@@ -238,13 +306,26 @@ version: v0.1
 description: Get trinucleotide context from VCF file
 
 arguments:
-  -h, --help              show this help message and exit
-  -v vcf_file, --vcf      vcf input file
-  -g genome, --genome
-                          genome fasta file
-  -o out-file, --out
+  -v, --vcf               vcf input file
+  -i, --in_file           varscan native file
+  -g, --genome            genome fasta file
+  -c, --caller            specify caller used ['varscan|mutect']
+
+  -o, --out
                           name of file to write [Default 'combined_snvs.txt']
-  -d out-directory, --dir
+  -d, --out_dir
                           directory to write to [Default cwd]
+  -h, --help              show this help message and exit
 "
 }
+#
+#
+# GetOptions( 'genome=s'				  =>			\$genome_file,
+#             'infile=s'          =>      \$in_file,
+#             'caller=s'          =>      \$caller,
+#             'vcf=s'						  =>			\$vcf_file,
+#             'snpEff'            =>      \$snpeff,
+#             'type=s'            =>      \$type,
+#      			  'out-file=s'        =>	 		\$snv_dist_file,
+#             'dir=s'             =>      \$out_dir,
+#      			  'help'         		  =>   		\$help

@@ -4,7 +4,7 @@
 \alias{mutSpectrum}
 \title{mutSpectrum}
 \usage{
-mutSpectrum()
+mutSpectrum(write = FALSE, max_y = 25)
 }
 \description{
 Plots the mutations spectrum for all samples combined

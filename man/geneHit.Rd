@@ -4,7 +4,7 @@
 \alias{geneHit}
 \title{geneHit}
 \usage{
-geneHit(n = 10)
+geneHit(..., n = 10)
 }
 \arguments{
 \item{n}{Show top n hits [Default 10]}
