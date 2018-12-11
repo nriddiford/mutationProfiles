@@ -13,9 +13,9 @@
 #' @import dplyr ggpubr
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export
-featureEnrichment <- function(features='data/genomic_features.txt', genome_length=118274340, write=FALSE){
+featureEnrichment <- function(..., features='data/genomic_features.txt', genome_length=118274340, write=FALSE){
   genome_features<-read.delim(features, header = T)
-  snv_data<-getData()
+  snv_data<-getData(...)
   mutCount<-nrow(snv_data)
 
   # To condense exon counts into "exon"
