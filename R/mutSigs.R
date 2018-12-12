@@ -8,7 +8,7 @@
 #' @keywords signatures
 #' @export
 
-mutSigs <- function(snv_data=NULL, samples=NULL, pie=FALSE, write=FALSE){
+mutSigs <- function(..., snv_data=NULL, samples=NULL, pie=FALSE, write=FALSE){
 
   if(!exists('scaling_factor')){
     cat("calculating trinucleotide frequencies in genome\n")

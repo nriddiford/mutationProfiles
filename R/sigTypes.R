@@ -11,7 +11,12 @@
 #' @keywords signatures
 #' @export
 
-sigTypes <- function(write=FALSE){
+sigTypes <- function(..., snv_data=NULL, write=FALSE, min_contribution=0.1){
+
+  if(missing(snv_data)){
+    snv_data<-getData(...)
+  }
+
   suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
   suppressMessages(require(deconstructSigs))
 
@@ -20,7 +25,6 @@ sigTypes <- function(write=FALSE){
     scaling_factor <-triFreq()
   }
 
-  snv_data<-getData()
   genome <- BSgenome.Dmelanogaster.UCSC.dm6
 
   sigs.input <- mut.to.sigs.input(mut.ref = snv_data, sample.id = "sample", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
@@ -47,18 +51,20 @@ sigTypes <- function(write=FALSE){
                 id = 'sample', variable.name = 'signature', value.name = 'score')
 
   mutData <- mutData %>%
-    filter(score > 0.1) %>%
-    group_by(sample) %>%
-    mutate(total = sum(score))
+    dplyr::filter(score >= min_contribution) %>%
+    dplyr::group_by(sample) %>%
+    dplyr::mutate(total = sum(score)) %>%
+    droplevels()
 
   p <- ggplot(mutData)
   p <- p + geom_bar(aes(fct_reorder(sample, -total), score, fill=signature),colour="black", stat = "identity")
   p <- p + scale_x_discrete("Sample")
   p <- p + scale_y_continuous("Signature contribution", expand = c(0.01, 0.01), breaks=seq(0, 1, by=0.1))
   p <- p + cleanTheme() +
-    theme(axis.text.x = element_text(angle = 45, hjust=1),
+    theme(axis.text.x = element_text(angle = 90, hjust=1, vjust = 0.5),
           axis.text = element_text(size=30)
     )
+
 
   if(write){
     sigTypes<-paste("sigTypes.pdf")

@@ -18,11 +18,11 @@ mutect=0
 indel=0
 annotate=0
 
-# genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
-genome=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Dmel_6.12.fasta # home
+genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
+#genome=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Dmel_6.12.fasta # home
 
-# features=/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf
-features=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf # home
+features=/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf
+#features=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf # home
 
 while getopts 'vmaihg:' flag; do
   case "${flag}" in

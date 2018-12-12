@@ -77,16 +77,16 @@ for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
 
      if ($source eq 'mutect'){
         my ($tumour_name, $normal_name) = @$sams;
-        ($t_ref_ad, $t_alt_ad) = split(/,/, $sample_info{$_}{$tumour_name}{'AD'});
-        ($n_ref_ad, $n_alt_ad) = split(/,/, $sample_info{$_}{$normal_name}{'AD'});
+        ($t_ref_ad, $t_alt_ad) = split(/,/, $sample_info{$_}{$tumour_name}{AD});
+        ($n_ref_ad, $n_alt_ad) = split(/,/, $sample_info{$_}{$normal_name}{AD});
         # $t_alt_ad = 3; # Force mutect2 vars through...
      }
-     
+
      elsif ($source eq 'varscan' or $source eq 'indel'){
-       $t_alt_ad   = $sample_info{$_}{TUMOR}{AD};
-       $t_ref_ad   = $sample_info{$_}{TUMOR}{RD};
-       $n_alt_ad   = $sample_info{$_}{NORMAL}{AD};
-       $n_ref_ad   = $sample_info{$_}{NORMAL}{RD};
+       $t_alt_ad  = $sample_info{$_}{TUMOR}{AD};
+       $t_ref_ad  = $sample_info{$_}{TUMOR}{RD};
+       $n_alt_ad  = $sample_info{$_}{NORMAL}{AD};
+       $n_ref_ad  = $sample_info{$_}{NORMAL}{RD};
       # should reduce to p <= 0.01
        if ($information{$_}{SPV} >= 0.05){
          $filter++;
