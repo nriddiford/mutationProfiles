@@ -4,7 +4,8 @@
 \alias{geneEnrichment}
 \title{geneEnrichment}
 \usage{
-geneEnrichment(gene_lengths_in = "data/gene_lengths.txt", n = 10,
+geneEnrichment(..., snv_data = NULL,
+  gene_lengths_in = "data/gene_lengths.txt", n = 10,
   genome_length = 118274340, write = FALSE)
 }
 \arguments{

@@ -4,7 +4,7 @@
 \alias{snvStats}
 \title{snvStats}
 \usage{
-snvStats()
+snvStats(..., snv_data = NULL)
 }
 \description{
 Calculate some basic stats for snv snv_data

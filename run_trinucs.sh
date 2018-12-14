@@ -82,15 +82,20 @@ if [[ $mutect -eq 1 ]]
 then
   for vcf in data/raw/snpEff/*_mutect_ann.vcf
   do
-    echo "perl script/vcffilter.pl -v $vcf -s mutect -o data"
-    perl script/vcffilter.pl -v $vcf -s mutect -o data
+    # bname=echo ${vcf##*/}
+    # name=${bname%_mutect_ann.vcf}
+    name=$(basename "$vcf" | cut -d '_' -f1)
+    echo "bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf"
+    bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf
+    echo "perl script/vcffilter.pl -v data/${name}_mutect_norm.vcf -s mutect -o data"
+    perl script/vcffilter.pl -v data/${name}_mutect_norm.vcf -s mutect -o data
   done
 
-  for filt_vcf in data/*mutect_filt.vcf
-  do
-    echo "perl script/trinucs.pl -g $genome -v $filt_vcf -d data"
-    perl script/trinucs.pl -g $genome -v $filt_vcf -d data
-  done
+  # for filt_vcf in data/*mutect_filt.vcf
+  # do
+  #   echo "perl script/trinucs.pl -g $genome -v $filt_vcf -d data"
+  #   perl script/trinucs.pl -g $genome -v $filt_vcf -d data
+  # done
 fi
 
 if [[ $annotate -eq 1 ]]

@@ -4,7 +4,7 @@
 \alias{sigTypes}
 \title{sigTypes}
 \usage{
-sigTypes(write = FALSE)
+sigTypes(..., snv_data = NULL, write = FALSE, min_contribution = 0.1)
 }
 \arguments{
 \item{samples}{Calculates and plots mutational signatures on a per-sample basis [Default no]}

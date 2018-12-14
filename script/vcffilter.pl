@@ -33,100 +33,121 @@ if ( not $vcf_file or not $source ){
   exit usage();
 }
 
-my ( $data, $info_fields, $calls, $heads, $sams ) = vcfParse::parse($vcf_file);
+my $filter_count = filter_vcf($vcf_file, $source, $out_dir);
+# p(%$filter_count);
 
-my (@headers) = @{$heads};
+sub filter_vcf{
+  my ($vcf_file, $source, $out_dir) = @_;
 
-my %calls = %{ $calls };
+  my ( $data, $info_fields, $calls, $heads, $sams ) = vcfParse::parse($vcf_file);
 
-my ($name, $extention) = split(/\.([^.]+)$/, basename($vcf_file), 2);
+  my (@headers) = @{$heads};
+  my %calls = %{ $calls };
+  my ($name, $extention) = split(/\.([^.]+)$/, basename($vcf_file), 2);
+  my ($sample_name) = (split(/_/, $name))[0];
 
-my ($id) = (split(/_/, $name))[0];
+  my ($tumour_name, $normal_name) = @$sams;
 
+  if ($source eq 'varscan'){
+    ($tumour_name, $normal_name) = reverse @$sams;
+  }
 
-open my $out, '>', $out_dir . "/" . $id . "_" . $source . "_filt.vcf";
+  if ($sample_name ne $tumour_name){
+    die " [!] Processing sample with file name: $sample_name, and vcf tumour ID: $tumour_name";
+  }
 
-print $out "$_\n" for @headers;
+  if (scalar keys %calls == 0){
+    die " [!] No variants found in file";
+  }
 
-for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
-		 @{ $data->{$a}}[1] <=> @{ $data->{$b}}[1]
-	 }  keys %{ $data } ){
-	 my ( $chrom, $pos, $id, $ref, $alt, $quality_score, $filt, $info_block, $format_block, $tumour_info_block, $normal_info_block, $samples ) = @{ $data->{$_} };
+  open my $out, '>', $out_dir . "/" . $sample_name . "_" . $source . "_filt.vcf";
+  print $out "$_\n" for @headers;
 
-	 my (@format) 		  = @{ $info_fields->{$_}[0] }; # The format field from VCF
-	 my (%format_long)  = @{ $info_fields->{$_}[1] }; # The description of the FORMAT field (corresponding to ##FORMAT=<ID=[field] in header)
-	 my (%info_long)    = @{ $info_fields->{$_}[2] }; # The description of the INFO field (corresponding to ##INFO=<ID=[field] in header)
-	 my (@tumour_parts) = @{ $info_fields->{$_}[3] }; # The tumour values (for each FORMAT feild)
-	 my (@normal_parts) = @{ $info_fields->{$_}[4] }; # The normal values (for each FORMAT feild)
-	 my (%information)  = @{ $info_fields->{$_}[5] }; # The format field from VCF
-	 my (%sample_info)  = @{ $info_fields->{$_}[6] }; # Per-sample info lookup (e.g. $sample_info{$_}{'[sample_name]'}{'[FORMAT_field]'})
+  my (%filter_count, %filter_reasons);
+  my $id_replacement = 0;
 
-   my $filter = 0;
+  for ( sort { @{ $data->{$a}}[0] cmp @{ $data->{$b}}[0] or
+  		 @{ $data->{$a}}[1] <=> @{ $data->{$b}}[1] }  keys %{ $data } ){
+    my ( $chrom, $pos, $id, $ref, $alt, $quality_score, $filt, $info_block, $format_block, $tumour_info_block, $normal_info_block, $samples ) = @{ $data->{$_} };
 
+    my (@format) 		  = @{ $info_fields->{$_}[0] }; # The format field from VCF
+  	my (%format_long)  = @{ $info_fields->{$_}[1] }; # The description of the FORMAT field (corresponding to ##FORMAT=<ID=[field] in header)
+  	my (%info_long)    = @{ $info_fields->{$_}[2] }; # The description of the INFO field (corresponding to ##INFO=<ID=[field] in header)
+  	my (@tumour_parts) = @{ $info_fields->{$_}[3] }; # The tumour values (for each FORMAT feild)
+  	my (@normal_parts) = @{ $info_fields->{$_}[4] }; # The normal values (for each FORMAT feild)
+  	my (%information)  = @{ $info_fields->{$_}[5] }; # The format field from VCF
+  	my (%sample_info)  = @{ $info_fields->{$_}[6] }; # Per-sample info lookup (e.g. $sample_info{$_}{'[sample_name]'}{'[FORMAT_field]'})
 
-   if ($chrom !~ /^(2L|2R|3L|3R|4|X|Y)$/ ){
-     $filter++;
-   }
-   # Filter if alt AD < 2
-   if ($sample_info{$_}{TUMOR}{AD}){
-     # Tumour alt and ref allele depths
-     my ($t_ref_ad, $t_alt_ad);
+    my $filter = 0;
+    if ($id eq '.'){
+      $id = $id_replacement++;
+    }
 
-     # Normal alt and ref allele depths
-     my ($n_ref_ad, $n_alt_ad );
+    if ($chrom !~ /^(2L|2R|3L|3R|4|X|Y)$/ ){
+      $filter++;
+      $filter_count{'chrom'}++;
+      push @{$filter_reasons{$id}}, 'chrom';
+    }
 
-     if ($source eq 'mutect'){
+    # Filter if alt AD < 2
+    if ($sample_info{$_}{$tumour_name}{AD}){
+      # Tumour alt and ref allele depths
+      my ($t_ref_ad, $t_alt_ad);
+      # Normal alt and ref allele depths
+      my ($n_ref_ad, $n_alt_ad );
+
+      if ($source eq 'mutect'){
         my ($tumour_name, $normal_name) = @$sams;
         ($t_ref_ad, $t_alt_ad) = split(/,/, $sample_info{$_}{$tumour_name}{AD});
         ($n_ref_ad, $n_alt_ad) = split(/,/, $sample_info{$_}{$normal_name}{AD});
         # $t_alt_ad = 3; # Force mutect2 vars through...
+      }
+      elsif ($source eq 'varscan' or $source eq 'indel'){
+        $t_alt_ad  = $sample_info{$_}{$tumour_name}{AD};
+        $t_ref_ad  = $sample_info{$_}{$tumour_name}{RD};
+        $n_alt_ad  = $sample_info{$_}{$normal_name}{AD};
+        $n_ref_ad  = $sample_info{$_}{$normal_name}{RD};
+        # should reduce to p <= 0.01
+        if ($information{$_}{SPV} >= 0.05){
+          $filter_count{'p-val'}++;
+          push @{$filter_reasons{$id}}, 'p-val';
+          $filter++;
+        }
+      }
+
+      if ($t_alt_ad < 2){
+        $filter_count{'alt-allele-depth'}++;
+        push @{$filter_reasons{$id}}, 'alt-allele-depth';
+        $filter++;
+      }
+
+      # Filter if alt AD + ref AD < 5
+      if ($t_alt_ad + $t_ref_ad < 5){
+        $filter_count{'depth'}++;
+        push @{$filter_reasons{$id}}, 'depth';
+        my $sample_depth = $t_alt_ad + $t_ref_ad;
+        $filter++;
+      }
+
+      # Filter if normal alt AD != 0
+      if ($n_alt_ad != 0){
+        $filter_count{'normal-has-alt-allele'}++;
+        push @{$filter_reasons{$id}}, 'normal-has-alt-allele';
+        $filter++;
+      }
+      # print "$chrom:$pos, $tumour_name\_alt_depth: $t_alt_ad, $tumour_name\_ref_depth: $t_ref_ad, $normal_name\_alt_depth: $n_alt_ad, $normal_name\_ref_depth: $n_ref_ad\t||\t";
+      # print join(",", @{$filter_reasons{$id}} ) . "\n";
      }
 
-     elsif ($source eq 'varscan' or $source eq 'indel'){
-       $t_alt_ad  = $sample_info{$_}{TUMOR}{AD};
-       $t_ref_ad  = $sample_info{$_}{TUMOR}{RD};
-       $n_alt_ad  = $sample_info{$_}{NORMAL}{AD};
-       $n_ref_ad  = $sample_info{$_}{NORMAL}{RD};
-      # should reduce to p <= 0.01
-       if ($information{$_}{SPV} >= 0.05){
-         $filter++;
-       }
+     if ($sample_info{$_}{$tumour_name}{AF}){
+       my $af = $sample_info{$_}{$tumour_name}{AF};
      }
 
-
-     if ($t_alt_ad < 2){
-      #  say "Alt allele depth filt: $t_alt_ad";
-       $filter++;
-     }
-
-     # Filter if alt AD + ref AD < 5
-     if ($t_alt_ad + $t_ref_ad < 5){
-       my $sample_depth = $t_alt_ad + $t_ref_ad;
-      #  say "Sample depth filt: $sample_depth";
-      #  say $calls{$_};
-       $filter++;
-     }
-     # Filter if normal alt AD != 0
-
-     if ($n_alt_ad != 0){
-      #  say "Normal alt allele depth filt: $n_alt_ad";
-       $filter++;
+     if ( $filter == 0){
+       print $out "$calls{$_}\n";
      }
    }
-
-   if ($sample_info{$_}{TUMOR}{AF}){
-     my $af = $sample_info{$_}{TUMOR}{AF};
-     # if ($af < 0.075){
-     #  #  say "Allele freq filt: $af";
-     #   $filter++;
-     # }
-
-  }
-
-   if ( $filter == 0){
-     print $out "$calls{$_}\n";
-   }
-
+  return(\%filter_reasons);
  }
 
 

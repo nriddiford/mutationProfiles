@@ -4,8 +4,9 @@
 \alias{featureEnrichment}
 \title{featureEnrichment}
 \usage{
-featureEnrichment(features = "data/genomic_features.txt",
-  genome_length = 118274340, write = FALSE)
+featureEnrichment(..., snv_data = NULL,
+  features = "data/genomic_features.txt", genome_length = 118274340,
+  write = FALSE)
 }
 \arguments{
 \item{features}{File containing total genomic lengths of features [Default 'data/genomic_features.txt']}
