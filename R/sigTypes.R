@@ -5,7 +5,7 @@
 #' @param pie Plot a pie chart shwoing contribution of each signature to overall profile [Default no]
 #' @import deconstructSigs
 #' @import data.table
-#' @import reshape
+#' @import reshape2
 #' @import forcats
 #' @import BSgenome.Dmelanogaster.UCSC.dm6
 #' @keywords signatures
