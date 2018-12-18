@@ -4,7 +4,7 @@
 \alias{getData}
 \title{getData}
 \usage{
-getData(..., infile = "data/annotated_snvs.txt",
+getData(..., infile = "data/annotated_snvs.txt", exclude = TRUE,
   expression_data = "data/isc_genes_rnaSeq.csv", type = "snv")
 }
 \arguments{

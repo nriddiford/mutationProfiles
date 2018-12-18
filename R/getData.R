@@ -6,7 +6,7 @@
 #' @import dplyr plyr
 #' @export
 #' @return Dataframe
-getData <- function(..., infile = "data/annotated_snvs.txt", expression_data='data/isc_genes_rnaSeq.csv', type='snv'){
+getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE,expression_data='data/isc_genes_rnaSeq.csv', type='snv'){
 
   cat("Filters applied:\n")
   input_list <- as.list(substitute(list(...)))
@@ -27,8 +27,10 @@ getData <- function(..., infile = "data/annotated_snvs.txt", expression_data='da
 
   snv_data <- plyr::join(snv_data,seq_data,"id", type = 'left')
 
-  excluded_samples <- c("A373R7", "A512R17", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9", "D050R01", "D050R03", "D050R05", "D050R07-1", "D050R07-2", "D050R10", "D050R12", "D050R14", "D050R16", "D050R18", "D050R20", "D050R22", "D050R24")
-
+  excluded_samples <- c()
+  if(exclude){
+    excluded_samples <- c("A373R7", "A512R17", "A785-A788R1", "A785-A788R11", "A785-A788R3", "A785-A788R5", "A785-A788R7", "A785-A788R9", "D050R01", "D050R03", "D050R05", "D050R07-1", "D050R07-2", "D050R10", "D050R12", "D050R14", "D050R16", "D050R18", "D050R20", "D050R22", "D050R24")
+  }
   snv_data <- snv_data %>%
     dplyr::filter(!sample %in% excluded_samples) %>%
     dplyr::mutate(fpkm = ifelse(is.na(fpkm), 0, round(fpkm, 1))) %>%
