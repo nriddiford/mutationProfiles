@@ -4,7 +4,7 @@
 \alias{snvRegionEnrichment}
 \title{Calculate the enrichment of SVs in genomic regions}
 \usage{
-snvRegionEnrichment(...,
+snvRegionEnrichment(..., snv_data = NULL,
   bedDir = "/Users/Nick_curie/Desktop/misc_bed/features", keep = NULL,
   slop = 0, plot = TRUE, genome_length = 118274340,
   intersect = FALSE, outDir = NA, parseName = FALSE, minHits = 10)

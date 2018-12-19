@@ -12,7 +12,7 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
 
   snv_data <- snv_data %>%
     dplyr::mutate(start = pos,
-                  end = pos+1) %>%
+                  end = pos+nchar(as.character(alt))) %>%
     dplyr::select(chrom, start, end)
 
   cat("Specified genome size:", genome_length, "\n")

@@ -20,6 +20,9 @@ getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE,expres
   }
   if(type=='indel'){
     colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "type", "decomposed_tri", "af", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id")
+    snv_data$alt <- gsub('\\+|-', '', snv_data$alt)
+    snv_data$alt <- gsub("\\'", '', snv_data$alt)
+
   }
   # Read in tissue specific expression data
   seq_data<-read.csv(header = F, expression_data)
