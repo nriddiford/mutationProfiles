@@ -81,7 +81,7 @@ featureEnrichment <- function(..., snv_data=NULL, features='data/genomic_feature
 
 
 featureEnrichmentPlot <- function(..., snv_data=NULL, write=FALSE) {
-  feature_enrichment<-featureEnrichment(..., snv_data=snv_data)
+  feature_enrichment<-featureEnrichment(...)
 
   feature_enrichment$feature <- as.character(feature_enrichment$feature)
   feature_enrichment$Log2FC <- as.numeric(feature_enrichment$Log2FC)

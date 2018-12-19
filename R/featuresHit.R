@@ -5,8 +5,10 @@
 #' @keywords features
 #' @export
 
-featuresHit <- function(..., write=FALSE){
-  snv_data<-getData(...)
+featuresHit <- function(..., snv_data=NULL, write=FALSE){
+  if(missing(snv_data)){
+    snv_data<-getData(...)
+  }
 
   # To condense exon counts into "exon"
   snv_data$feature<-as.factor(gsub("exon_.*", "exon", snv_data$feature))

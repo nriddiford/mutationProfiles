@@ -22,4 +22,9 @@ Imports:
     plyr,
     ggpubr,
     plotly,
-    e1071
+    e1071,
+    bedr,
+    colorspace,
+    cowplot,
+    scales,
+    tidyr
