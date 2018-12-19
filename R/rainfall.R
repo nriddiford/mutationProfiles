@@ -1,11 +1,11 @@
 #' rainfall
 #'
 #' Plot log10 distances between snvs as rainfall plot
-#' @import ggplot2
+#' @import ggplot2 dplyr
 #' @keywords rainfall
 #' @export
 
-rainfall <- function(..., snv_data=NULL){
+rainfall <- function(..., snv_data=NULL, write=FALSE){
   if(missing(snv_data)){
     snv_data<-getData(...)
   }
@@ -19,7 +19,7 @@ rainfall <- function(..., snv_data=NULL){
                        )
 
   distances$logdist[is.infinite(distances$logdist)] <- 0
-  distances<-filter(distances, chrom != 4)
+  distances<-dplyr::filter(distances, chrom != 4)
 
   p <- ggplot(distances)
   p <- p + geom_point(aes(pos/1000000, logdist, colour = grouped_trans))
@@ -33,9 +33,10 @@ rainfall <- function(..., snv_data=NULL){
   #p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
   p <- p + scale_x_continuous("Mbs", breaks = seq(0,max(distances$pos),by=10))
 
-  rainfall_out<-paste("rainfall.pdf")
-  cat("Writing file", rainfall_out, "\n")
-  ggsave(paste("plots/", rainfall_out, sep=""), width = 20, height = 5)
-
+  if(write){
+    rainfall_out<-paste("rainfall.pdf")
+    cat("Writing file", rainfall_out, "\n")
+    ggsave(paste("plots/", rainfall_out, sep=""), width = 20, height = 5)
+  }
   p
 }

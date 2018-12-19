@@ -11,7 +11,11 @@
 #' @keywords gene
 #' @export
 
-snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='kuz', annotated=TRUE, col_by_status=TRUE, write=FALSE){
+snvinGene <- function(..., snv_data=NULL, gene_lengths="data/gene_lengths.txt", gene2plot='kuz', annotated=TRUE, col_by_status=TRUE, write=FALSE){
+  if(missing(snv_data)){
+    snv_data<-getData(...)
+  }
+
   gene_lengths <- read.delim(gene_lengths, header = T)
 
   region <- gene_lengths %>%
@@ -24,7 +28,7 @@ snvinGene <- function(gene_lengths="data/gene_lengths.txt", gene2plot='kuz', ann
   wChrom<-as.character(region$chrom)
   wTss<-suppressWarnings(as.numeric(levels(region$tss))[region$tss])
 
-  snv_data<-getData() %>%
+  snv_data <- snv_data %>%
     dplyr::filter(chrom == wChrom & pos >= wStart & pos <= wEnd)
 
   if(nrow(snv_data) == 0){

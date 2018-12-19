@@ -4,7 +4,7 @@
 \alias{rainfall}
 \title{rainfall}
 \usage{
-rainfall(..., snv_data = NULL)
+rainfall(..., snv_data = NULL, write = FALSE)
 }
 \description{
 Plot log10 distances between snvs as rainfall plot

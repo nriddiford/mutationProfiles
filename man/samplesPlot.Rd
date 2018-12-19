@@ -4,7 +4,8 @@
 \alias{samplesPlot}
 \title{samplesPlot}
 \usage{
-samplesPlot(count = NA)
+samplesPlot(..., snv_data = NULL, count = FALSE, write = FALSE,
+  tricounts = NULL)
 }
 \arguments{
 \item{count}{Output total counts instead of frequency if set [Default no]}
