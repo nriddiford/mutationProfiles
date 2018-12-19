@@ -4,9 +4,11 @@
 #' @import dplyr
 #' @import data.table
 #' @export
-snvRegionEnrichment <- function(..., bedDir='/Users/Nick_curie/Desktop/misc_bed/features', keep=NULL,
+snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/Desktop/misc_bed/features', keep=NULL,
                                slop=0, plot=TRUE, genome_length=118274340, intersect=FALSE, outDir=NA, parseName=FALSE, minHits=10){
-  snv_data <- getData(...)
+  if(missing(snv_data)){
+    snv_data<-getData(...)
+  }
 
   snv_data <- snv_data %>%
     dplyr::mutate(start = pos,
