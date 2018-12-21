@@ -6,7 +6,7 @@
 #' @import dplyr plyr
 #' @export
 #' @return Dataframe
-getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE,expression_data='data/isc_genes_rnaSeq.csv', type='snv'){
+getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE, expression_data='data/isc_genes_rnaSeq.csv', type='snv'){
 
   cat("Filters applied:\n")
   input_list <- as.list(substitute(list(...)))
@@ -42,18 +42,20 @@ getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE,expres
                                          ifelse(af*2>1, 1, af*2))) %>%
     dplyr::filter(...) %>%
     droplevels()
-  ##############
-  ## Filters ###
-  ##############
-
-  # Filter for calls made by both V and M
-  # snv_data<-filter(snv_data, caller == 'mutect2' | caller == 'varscan2_mutect2')
-
-  # Filter for old/new data
-  # cat("Filtering for old/new data\n")
-  # snv_data <- filter(snv_data, !grepl("^A|H", sample))
-
-  dir.create(file.path("plots"), showWarnings = FALSE)
 
   return(snv_data)
+}
+
+
+#' showSamples
+#'
+#' A helper function to print the sample names
+#' @param infile File to process [Required]
+#' @keywords samples
+#' @import dplyr
+#' @export
+
+showSamples <- function(infile = "data/annotated_snvs.txt"){
+  snv_data<-read.delim(infile, header = T)
+  print(levels(snv_data$sample))
 }
