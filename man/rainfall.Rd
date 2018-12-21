@@ -4,7 +4,8 @@
 \alias{rainfall}
 \title{rainfall}
 \usage{
-rainfall(..., snv_data = NULL, write = FALSE)
+rainfall(..., snv_data = NULL, write = FALSE, title = NULL,
+  exclude_chroms = c("4", "Y"))
 }
 \description{
 Plot log10 distances between snvs as rainfall plot
