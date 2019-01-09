@@ -8,7 +8,7 @@
 #' @keywords signatures
 #' @export
 
-mutSigs <- function(..., snv_data=NULL, samples=NULL, pie=FALSE, write=FALSE){
+mutSigs <- function(..., snv_data=NULL, by_sample=FALSE, pie=FALSE, write=FALSE){
 
   if(!exists('scaling_factor')){
     cat("calculating trinucleotide frequencies in genome\n")
@@ -19,7 +19,7 @@ mutSigs <- function(..., snv_data=NULL, samples=NULL, pie=FALSE, write=FALSE){
   }
   genome <- BSgenome.Dmelanogaster.UCSC.dm6
 
-  if(missing(samples)){
+  if(!by_sample){
     cat("Plotting for all samples\n")
     snv_data$tissue = 'All'
     sigs.input <- mut.to.sigs.input(mut.ref = snv_data, sample.id = "tissue", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
@@ -55,7 +55,6 @@ mutSigs <- function(..., snv_data=NULL, samples=NULL, pie=FALSE, write=FALSE){
                                   tri.counts.method = scaling_factor)
 
         if(write){
-
           outfile<-(paste('plots/', s, '_signatures.pdf', sep = ''))
           cat("Writing to file", outfile, "\n")
           pdf(outfile, width = 20, height = 10)
