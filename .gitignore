@@ -4,3 +4,5 @@
 plots/*
 data/*
 *.vcf
+PD4120a-chr4-1-2000000_test
+mut_sigs.png

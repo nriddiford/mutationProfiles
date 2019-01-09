@@ -57,5 +57,6 @@ getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE, expre
 
 showSamples <- function(infile = "data/annotated_snvs.txt"){
   snv_data<-read.delim(infile, header = T)
-  print(levels(snv_data$sample))
+  # print(levels(snv_data$sample))
+  dput(as.character(levels(snv_data$sample)))
 }
