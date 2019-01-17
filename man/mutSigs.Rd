@@ -4,13 +4,13 @@
 \alias{mutSigs}
 \title{mutSigs}
 \usage{
-mutSigs(..., snv_data = NULL, samples = NULL, pie = FALSE,
+mutSigs(..., snv_data = NULL, by_sample = FALSE, pie = FALSE,
   write = FALSE)
 }
 \arguments{
-\item{samples}{Calculates and plots mutational signatures on a per-sample basis [Default no]}
-
 \item{pie}{Plot a pie chart shwoing contribution of each signature to overall profile [Default no]}
+
+\item{samples}{Calculates and plots mutational signatures on a per-sample basis [Default no]}
 }
 \description{
 Calculate and plot the mutational signatures accross samples using the package `deconstructSigs`

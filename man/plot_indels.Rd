@@ -4,7 +4,7 @@
 \alias{plot_indels}
 \title{indel_count}
 \usage{
-plot_indels(..., indels = "data/annotated_indels.txt")
+plot_indels(..., exclude = TRUE, indels = "data/annotated_indels.txt")
 }
 \description{
 Plot indel size per sample

@@ -4,8 +4,19 @@
 \alias{chromDist}
 \title{chromDist}
 \usage{
-chromDist(..., snv_data = NULL, object = NA, notch = 0,
-  write = FALSE)
+chromDist(..., snv_data = NULL, notch = FALSE, write = FALSE,
+  binsize = 0.1, density = TRUE)
+}
+\arguments{
+\item{snv_data}{A dataframe of snvs [Default: NULL]}
+
+\item{notch}{Filter in/out Notch region [Default: FALSE]}
+
+\item{write}{Write plot to file 'plots/snv_dist_genome_by.png'? [Default: FALSE]}
+
+\item{binsize}{Control the density adjustment if density=TRUE, or the binwidth if density=FALSE. For histograms a value of 0.1 corresponds to 1/10th of a Mb [Default:0.1]}
+
+\item{density}{Plot as density? [Default: TRUE]}
 }
 \description{
 Plot genome-wide snv distribution

@@ -23,7 +23,11 @@ rainfall <- function(..., snv_data=NULL, write=FALSE, title=NULL, exclude_chroms
 
 
   p <- ggplot(distances)
-  p <- p + geom_point(aes(pos/1000000, logdist, colour = grouped_trans))
+  if("grouped_trans" %in% colnames(snv_data)){
+    p <- p + geom_point(aes(pos/1000000, logdist, colour = grouped_trans))
+  }else{
+    p <- p + geom_point(aes(pos/1000000, logdist, colour = type))
+  }
   p <- p + cleanTheme() +
     theme(axis.text.x = element_text(angle=45, hjust = 1),
           panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
@@ -33,6 +37,7 @@ rainfall <- function(..., snv_data=NULL, write=FALSE, title=NULL, exclude_chroms
   p <- p + facet_wrap(~chrom, scale = "free_x", ncol = 6)
   #p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
   p <- p + scale_x_continuous("Mbs", breaks = seq(0,max(distances$pos),by=10))
+  p <- p + ylab("Genomic distance")
   if(!missing(title)){
     p <- p + ggtitle(title)
   }

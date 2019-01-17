@@ -34,6 +34,7 @@ sigTypes <- function(..., snv_data=NULL, write=FALSE, min_contribution=0.1){
     snv_count<-nrow(filter(snv_data, sample == s))
 
     if(snv_count > 50){
+      cat(s, snv_count, sep="\t", "\n")
 
       sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = s,
                                 contexts.needed = TRUE,
@@ -72,6 +73,7 @@ sigTypes <- function(..., snv_data=NULL, write=FALSE, min_contribution=0.1){
     ggsave(paste("plots/", sigTypes, sep=""), width = 20, height = 10)
   }
   p
+  return(mutData)
 }
 
 
