@@ -142,7 +142,7 @@ sub filter_vcf{
      if ($sample_info{$_}{$tumour_name}{AF}){
        my $af = $sample_info{$_}{$tumour_name}{AF};
      }
-
+          
      if ( $filter == 0){
        print $out "$calls{$_}\n";
      }

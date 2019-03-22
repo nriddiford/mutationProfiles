@@ -80,8 +80,8 @@ featureEnrichment <- function(..., snv_data=NULL, features='data/genomic_feature
 }
 
 
-featureEnrichmentPlot <- function(..., snv_data=NULL, write=FALSE) {
-  feature_enrichment<-featureEnrichment(...)
+featureEnrichmentPlot <- function(..., snv_data=NULL, write=FALSE, y_lim=c(-2,2)) {
+  feature_enrichment<-featureEnrichment(..., snv_data=snv_data)
 
   feature_enrichment$feature <- as.character(feature_enrichment$feature)
   feature_enrichment$Log2FC <- as.numeric(feature_enrichment$Log2FC)
@@ -96,7 +96,7 @@ featureEnrichmentPlot <- function(..., snv_data=NULL, write=FALSE) {
   p<-ggplot(feature_enrichment)
   p<-p + geom_bar(aes(feature, Log2FC, fill = as.character(test)), stat="identity")
   p<-p + guides(fill=FALSE)
-  p<-p + ylim(-2,2)
+  p<-p + ylim(y_lim)
   p<-p + cleanTheme() +
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),
           axis.text.x = element_text(angle = 45, hjust=1),

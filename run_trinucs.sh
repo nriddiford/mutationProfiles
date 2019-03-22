@@ -91,11 +91,11 @@ then
     perl script/vcffilter.pl -v data/${name}_mutect_norm.vcf -s mutect -o data
   done
 
-  # for filt_vcf in data/*mutect_filt.vcf
-  # do
-  #   echo "perl script/trinucs.pl -g $genome -v $filt_vcf -d data"
-  #   perl script/trinucs.pl -g $genome -v $filt_vcf -d data
-  # done
+  for filt_vcf in data/*mutect_filt.vcf
+  do
+    echo "perl script/trinucs.pl -g $genome -v $filt_vcf -c mutect -d data"
+    perl script/trinucs.pl -g $genome -v $filt_vcf -c mutect -d data
+  done
 fi
 
 if [[ $annotate -eq 1 ]]

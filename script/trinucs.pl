@@ -61,7 +61,7 @@ my ($filtered_data_ref) = get_context($data_ref, $type);
 my ($sample, $snv_dist_ref) = count($filtered_data_ref, $type);
 # Write to R-friendly dataframe
 
-write_dataframe($sample, $snv_dist_ref, $type);
+write_dataframe($sample, $snv_dist_ref, $type, $snv_dist_file);
 
 sub get_genome {
   my $genome_file = shift;
@@ -259,9 +259,14 @@ sub count {
 }
 
 sub write_dataframe {
-  my ($sample, $snv_dist_ref, $type) = @_;
+  my ($sample, $snv_dist_ref, $type, $snv_dist_file) = @_;
 
+  # my $outlocation = File::Spec->catdir( $out_dir, $snv_dist_file);
+  say $snv_dist_file;
   my $outlocation = $out_dir . "/" . $snv_dist_file;
+
+  say $outlocation;
+
   open my $snv_dist, '>>',  $outlocation or die $!;
 
   # if ( -z $snv_dist ) {
