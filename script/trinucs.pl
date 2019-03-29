@@ -179,8 +179,14 @@ sub get_context {
    	if ( (length $ref == 1 and length $alt == 1 and $chroms{$chrom}) or $type eq 'indel' ) {
 
       $snvs{$chrom}{$pos} = [$ref, $alt];
-
-      my ($trinuc) = substr( $genome{$chrom}, $pos - 2, 3 );
+      my $trinuc;
+      # my ($trinuc) = substr( $genome{$chrom}, $pos - 2, 3 );
+      if($type eq 'indel'){
+        ($trinuc) = substr( $genome{$chrom}, $pos - 5, 9 );
+      }
+      else {
+        ($trinuc) = substr( $genome{$chrom}, $pos - 2, 3 );
+      }
 
       if ($trinuc =~ /N/){
         say "excluding $trinuc";
@@ -214,7 +220,6 @@ sub group_muts {
     $new_alt = 'G' if $alt eq 'C';
     $trinuc = rev_comp($trinuc);
   }
-
   return($trinuc, $new_ref, $new_alt);
 }
 
