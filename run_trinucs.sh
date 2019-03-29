@@ -4,9 +4,11 @@ usage() {
     echo "
   usage:   run_trinucs.sh [options]
   options:
-    -v    varscan2
-    -m    mutect2 file
+    -v    process varscan calls
+    -m    process mutect2 calls
+    -i    process varscan indel calls
     -a    annotate variants
+    -c    clean up old files
     -g    path to genome.fasta
     -f    path to feature.gtf
     -h    show this message
@@ -17,6 +19,7 @@ varscan=0
 mutect=0
 indel=0
 annotate=0
+clean=
 
 genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
 #genome=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Dmel_6.12.fasta # home
@@ -24,11 +27,12 @@ genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
 features=/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf
 #features=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf # home
 
-while getopts 'vmaihg:' flag; do
+while getopts 'vmaichg:' flag; do
   case "${flag}" in
     v)  varscan=1 ;;
     m)  mutect=1 ;;
     i)  indel=1 ;;
+    c)  clean=1 ;;
     g)  genome=${OPTARG};;
     a)  annotate=1 ;;
     h)  usage
@@ -42,11 +46,17 @@ then
   exit 0
 fi
 
-# if [[ -f "data/combined_snvs.txt" ]]
-# then
-#   echo "Cleaning up old files"
-#   rm data/combined_snvs.txt
-# fi
+if [[ -f "data/combined_snvs.txt" && $clean && $varscan -eq 1 || $mutect -eq 1 ]]
+then
+  echo "Cleaning up old snv files"
+  rm data/combined_snvs.txt
+fi
+
+if [[ -f "data/combined_indels.txt" && $clean && $indel -eq 1 ]]
+then
+  echo "Cleaning up old indel files"
+  rm data/combined_indels.txt
+fi
 
 if [[ $varscan -eq 1 ]]
 then
@@ -100,9 +110,14 @@ fi
 
 if [[ $annotate -eq 1 ]]
 then
-  echo "Annotating vars"
-  echo "perl script/snv2gene.pl -i data/combined_snvs.txt -f $features"
-  perl script/snv2gene.pl -i data/combined_snvs.txt -f $features
+  if [[ $indel -eq 1 ]]
+  then
+    echo "Annotating indels"
+    echo "perl script/snv2gene.pl -i data/combined_indels.txt -f $features -t indel"
+    perl script/snv2gene.pl -i data/combined_indels.txt -f $features -t indel
+  else
+    echo "Annotating SNVs"
+    echo "perl script/snv2gene.pl -i data/combined_snvs.txt -f $features"
+    perl script/snv2gene.pl -i data/combined_snvs.txt -f $features
+  fi
 fi
-
-# mv combined_snvs.txt data
