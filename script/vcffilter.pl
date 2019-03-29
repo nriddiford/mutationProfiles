@@ -48,11 +48,10 @@ sub filter_vcf{
 
   my ($tumour_name, $normal_name) = @$sams;
 
-  if ($source eq 'varscan'){
+  if ( $source eq 'varscan' or $source eq 'indel' ){
     ($tumour_name, $normal_name) = reverse @$sams;
   }
-
-  if ($sample_name ne $tumour_name){
+  elsif ($sample_name ne $tumour_name){
     die " [!] Processing sample with file name: $sample_name, and vcf tumour ID: $tumour_name";
   }
 
@@ -142,7 +141,7 @@ sub filter_vcf{
      if ($sample_info{$_}{$tumour_name}{AF}){
        my $af = $sample_info{$_}{$tumour_name}{AF};
      }
-          
+
      if ( $filter == 0){
        print $out "$calls{$_}\n";
      }

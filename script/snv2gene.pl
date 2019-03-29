@@ -73,9 +73,11 @@ sub annotate_SNVs {
   my ($in, $type) = @_;
 
   open my $snv_in, '<', $in;
-
+  my $header = join("\t", "sample", "chromosome", "pos", "ref", "alt", "trinuc", "trans", "decomp_trinuc", "grouped_trans", "allele_frequency", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id");
   if ($type eq 'indel'){
     open $annotated_snvs, '>', "data/annotated_indels.txt";
+    $header = join("\t", "sample", "chromosome", "pos", "ref", "alt", "trinuc", "trans", "decomp_trinuc", "allele_frequency", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id");
+
   }
   else {
     open $annotated_snvs, '>', "data/annotated_snvs.txt";
@@ -83,7 +85,7 @@ sub annotate_SNVs {
 
   if ( -z $annotated_snvs ) {
     say "Adding header to file";
-    print $annotated_snvs join("\t", "sample", "chromosome", "pos", "ref", "alt", "trinuc", "trans", "decomp_trinuc", "grouped_trans", "allele_frequency", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id") . "\n";
+    print $annotated_snvs $header . "\n";
   }
 
   my $call = 1;

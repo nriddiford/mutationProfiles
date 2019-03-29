@@ -44,7 +44,7 @@ snvinGene <- function(..., snv_data=NULL, gene_lengths="data/gene_lengths.txt", 
   }
 
   p <- ggplot(snv_data)
-  p <- p + geom_point(aes(pos/1000000, sample, colour = colour_var, size = 1.5), position=position_jitter(width=0, height=0.2))
+  p <- p + geom_point(aes(pos/1000000, sample, colour = colour_var, alpha = af, size = 1.5), position=position_jitter(width=0, height=0.1))
   p <- p + guides(size = FALSE, sample = FALSE)
   p <- p + cleanTheme() +
     theme(axis.title.y=element_blank(),
