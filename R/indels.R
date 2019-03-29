@@ -31,7 +31,7 @@ plot_indels <- function(..., exclude=TRUE, indels='data/annotated_indels.txt'){
 #' @import dplyr
 #' @keywords count
 #' @export
-indel_lengths <- function(..., exclude=TRUE, indels='data/annotated_indels.txt', plot=TRUE){
+indel_lengths <- function(..., exclude=TRUE, indels='data/annotated_indels.txt', plot=TRUE, count=TRUE){
 
   indel_data <- mutationProfiles::getData(...,infile = indels, exclude=exclude, type = 'indel')
 
@@ -44,12 +44,21 @@ indel_lengths <- function(..., exclude=TRUE, indels='data/annotated_indels.txt',
     dplyr::group_by(sample, type_class) %>%
     dplyr::tally()
 
+
   indel_lengths <- indel_lengths %>%
     dplyr::group_by(sample) %>%
-    dplyr::mutate(total = sum(n))
+    dplyr::mutate(total = sum(n)) %>%
+    dplyr::mutate(fraction = n/total)
 
   if(plot){
-    p <- ggplot(indel_lengths, aes(fct_reorder(sample, -total), n, fill=type_class))
+    if(count) {
+      p <- ggplot(indel_lengths, aes(fct_reorder(sample, -n), n, fill=type_class))
+      ytitle <- "Number of calls"
+    } else {
+      p <- ggplot(indel_lengths, aes(fct_reorder(sample, -n), fraction, fill=type_class))
+      ytitle <- "Fraction of calls"
+    }
+
     p <- p + geom_bar(stat='identity')
     p <- p + scale_y_continuous("Number of calls", expand = c(0,0))
     p <- p + scale_x_discrete("Sample")
