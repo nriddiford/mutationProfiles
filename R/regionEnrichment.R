@@ -4,16 +4,17 @@
 #' @import dplyr
 #' @import data.table
 #' @export
-snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/Desktop/misc_bed/features', keep=NULL,
-                               slop=0, plot=TRUE, genome_length=118274340, intersect=FALSE, outDir=NA, parseName=FALSE, minHits=10){
+snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/Desktop/misc_bed/features', keep=NULL, chroms=c('2L', '2R', '3L', '3R', '4', 'X', 'Y'),
+                               slop=0, plot=TRUE, genome_length=118274340, intersect=FALSE, outDir, parseName=FALSE, minHits=10, return_overlaps=FALSE){
   if(missing(snv_data)){
     snv_data<-getData(...)
   }
 
   snv_data <- snv_data %>%
+    dplyr::filter(...) %>%
     dplyr::mutate(start = pos,
                   end = pos+nchar(as.character(alt))) %>%
-    dplyr::select(chrom, start, end)
+    dplyr::select(chrom, start, end, ref, alt, grouped_trans)
 
   cat("Specified genome size:", genome_length, "\n")
   cat("Expanding regions by", slop, "\n\n")
@@ -21,11 +22,12 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
   scores <- list()
   regionFC <- list()
 
+  annotated_snvs <- list()
+
   fileNames <- dir(bedDir, pattern = ".bed")
   # cat("Analysing all files in directory:", bedFiles, "\n")
   for (f in fileNames){
     # cat("Analysing file:", f, "\n")
-
     if(parseName){
       filename <- basename(tools::file_path_sans_ext(f))
       parts <- unlist(strsplit(filename, split = '_'))
@@ -49,18 +51,16 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
     regions <- regions[,c(1,2,3)]
     colnames(regions) <- c("chrom", "start", "end")
 
-    myChroms <- c("2L", "2R", "3L", "3R", "X", "Y", "4")
-
     # This slop wont handle cases where the adjusted regions overlap (they will be counted twice...)
     regions <- regions %>%
-      filter(chrom %in% myChroms) %>%
-      filter(start < end) %>%
-      mutate(start = start - slop) %>%
-      mutate(end = end + slop) %>%
-      arrange(chrom) %>%
+      dplyr::filter(chrom %in% chroms,
+                    start < end) %>%
+      dplyr::mutate(start = start - slop,
+                    end = end + slop) %>%
+      dplyr::arrange(chrom) %>%
       droplevels()
 
-    if (!nrow(regions)) next
+    if(!nrow(regions)) next
 
     if(intersect){
       cat("Analysing file:", f, "\n")
@@ -74,9 +74,12 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
         dplyr::rename(chrom=chr)
     }
 
+    snv_positions <- snv_data %>%
+      dplyr::select(chrom:end)
+
     # setkey = d1 for breakpoints, d2 for regions
     r <- data.table(regions)
-    b <- data.table(snv_data)
+    b <- data.table(snv_positions)
     setkey(r)
 
     # search for bp overlaps with regions (d2, d1) for breakpoints, d1, d2 for regions
@@ -86,8 +89,12 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
       dplyr::mutate(feature = ifelse(is.na(start), 'outside', 'inside')) %>%
       dplyr::select(chrom, start, end, feature, i.start, i.end)
 
+    bpRegions$ref <- snv_data$ref
+    bpRegions$alt <- snv_data$alt
+    bpRegions$trans <- snv_data$grouped_trans
+
     # Replace old write option to now show regions in file that contain breakpoints
-    if(!is.na(outDir)){
+    if(!missing(outDir)){
       cat("Writing bed file of overlaps for :", factor, "\n")
       basename <- factor
       basename <- paste(basename, '_containing_', slop, '.bed', sep='')
@@ -122,7 +129,7 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
 
     fc <- round(fc, digits = 1)
 
-    cat(regionFraction, f, "\n")
+    cat(f, "comprises", regionFraction, "of the mappable genome\n")
 
     biTest <- function(f){
       # Binomial test
@@ -160,10 +167,20 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
     regionsTested$expected <- round(as.numeric(regionsTested$expected), 2)
     scores[[f]] <- regionsTested
 
+    bpRegions <- bpRegions %>%
+      dplyr::mutate(start = i.start,
+                    end = i.end) %>%
+      dplyr::mutate(location = factor(feature),
+                    feature =  factor(stringr::str_replace(f, ".mappable.bed", ""))) %>%
+      dplyr::select(chrom, start, end, feature, location, ref, alt, trans)
+
+    annotated_snvs[[f]] <- bpRegions
   }
 
   #combine each iteration into one data frame
   final <- as.data.frame(do.call(rbind, scores))
+  snvs_annotated <- as.data.frame(do.call(rbind, annotated_snvs))
+  rownames(snvs_annotated) <- NULL
 
   final$count <- as.numeric(final$observed) + as.numeric(final$expected)
 
@@ -187,6 +204,7 @@ snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/De
       print(Volcano(final))
       # print(ggVolcano(df=final))
     }
+    if(return_overlaps) return(snvs_annotated)
     return(final)
   }
 }

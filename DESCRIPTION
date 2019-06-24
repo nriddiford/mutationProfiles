@@ -27,4 +27,5 @@ Imports:
     colorspace,
     cowplot,
     scales,
-    tidyr
+    tidyr,
+    stringr

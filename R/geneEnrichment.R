@@ -21,7 +21,8 @@ geneEnrichment <- function(..., snv_data=NULL, gene_lengths_in="data/gene_length
   }
 
   snv_data <- snv_data %>%
-    dplyr::filter(gene != "intergenic") %>%
+    dplyr::filter(...,
+                  gene != "intergenic") %>%
     droplevels()
 
   snv_count<-nrow(snv_data)
