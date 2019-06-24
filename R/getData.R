@@ -6,7 +6,7 @@
 #' @import dplyr plyr
 #' @export
 #' @return Dataframe
-getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE, expression_data='data/isc_genes_rnaSeq.csv', type='snv', attach_info='data/samples_names_conversion.txt'){
+getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE, expression_source = 'flygut', expression_data='/Users/Nick_curie/Documents/Curie/Data/RNA-Seq_data/Buchon_summary_ISCs.txt', type='snv', attach_info='data/samples_names_conversion.txt'){
 
   cat("Filters applied:\n")
   input_list <- as.list(substitute(list(...)))
@@ -27,14 +27,24 @@ getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE, expre
 
   if(file.exists(attach_info)){
     name_conversion <- read.delim(attach_info, header=F)
-    cat("Attaching assay information to data")
+    cat("Attaching assay information to data\n")
     colnames(name_conversion) <- c("sample", "sample_short", "sex", "assay")
     snv_data <- plyr::join(snv_data, name_conversion, "sample", type = 'left')
   }
-
-  # Read in tissue specific expression data
-  seq_data<-read.csv(header = F, expression_data)
-  colnames(seq_data)<-c('id', 'fpkm')
+  if(expression_source == 'flygut'){
+    cat("Reading expression data from source: 'flygut [Buchon]'")
+    expression_data = read.delim('/Users/Nick_curie/Documents/Curie/Data/RNA-Seq_data/Buchon_summary_ISCs.txt')
+    colnames(expression_data) <- c('id', 'symbol', 'name', 'isc', 'eb', 'ec', 'ee', 'vm')
+    seq_data <- expression_data %>%
+      dplyr::mutate(fpkm = isc) %>%
+      dplyr::select(id, fpkm)
+  } else{
+    cat("Reading expression data from source: 'Dutta'")
+    expression_data = system.file("extdata", "isc_genes_rnaSeq.txt")
+    # Read in tissue specific expression data
+    seq_data<-read.csv(header = F, expression_data)
+    colnames(seq_data)<-c('id', 'fpkm')
+  }
 
   snv_data <- plyr::join(snv_data,seq_data, "id", type = 'left')
 
