@@ -5,7 +5,7 @@
 #' @keywords rainfall
 #' @export
 
-rainfall <- function(..., snv_data=NULL, write=FALSE, title=NULL, exclude_chroms=c("4", "Y")){
+rainfall <- function(..., snv_data=NULL, write=FALSE, title=NULL, chroms= c("2L", "2R", "3L", "3R", "X"), from=NULL, to=NULL, tick_by=10){
   if(missing(snv_data)){
     snv_data<-getData(...)
   }
@@ -19,8 +19,13 @@ rainfall <- function(..., snv_data=NULL, write=FALSE, title=NULL, exclude_chroms
                        )
 
   distances$logdist[is.infinite(distances$logdist)] <- 0
-  distances <- dplyr::filter(distances, !chrom %in% exclude_chroms)
+  distances <- dplyr::filter(distances, chrom %in% chroms)
 
+  if( !missing(from) && !missing(to) ) {
+    distances <- distances %>%
+      dplyr::filter(pos >= (from -5000),
+                    pos <= (to + 5000))
+  }
 
   p <- ggplot(distances)
   if("grouped_trans" %in% colnames(snv_data)){
@@ -36,7 +41,7 @@ rainfall <- function(..., snv_data=NULL, write=FALSE, title=NULL, exclude_chroms
 
   p <- p + facet_wrap(~chrom, scale = "free_x", ncol = 6)
   #p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
-  p <- p + scale_x_continuous("Mbs", breaks = seq(0,max(distances$pos),by=10))
+  p <- p + scale_x_continuous("Mbs", breaks = seq(0,max(distances$pos), by = tick_by))
   p <- p + ylab("Genomic distance")
   if(!missing(title)){
     p <- p + ggtitle(title)
