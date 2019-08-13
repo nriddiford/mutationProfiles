@@ -15,17 +15,15 @@
 #' @import ggpubr
 #' @return A snv_data frame with FC scores for all genes seen at least n times in snv snv_data
 #' @export
-geneEnrichment <- function(..., snv_data=NULL, gene_lengths_in="data/gene_lengths.txt", n=10, genome_length=118274340, write=FALSE){
-  if(missing(snv_data)){
-    snv_data <- getData(...)
-  }
+geneEnrichment <- function(..., snv_data=NULL, gene_lengths_in="data/gene_lengths.txt", n=10, genome_length=118274340){
+  if(missing(snv_data)) snv_data <- getData(...)
 
   snv_data <- snv_data %>%
     dplyr::filter(...,
                   gene != "intergenic") %>%
     droplevels()
 
-  snv_count<-nrow(snv_data)
+  snv_count <- nrow(snv_data)
 
   gene_lengths <- read.delim(gene_lengths_in, header = T)
 
@@ -34,15 +32,15 @@ geneEnrichment <- function(..., snv_data=NULL, gene_lengths_in="data/gene_length
     dplyr::select(gene, length) %>%
     droplevels()
 
-  genes<-setNames(as.list(gene_lengths$length), gene_lengths$gene)
+  genes <- setNames(as.list(gene_lengths$length), gene_lengths$gene)
 
-  snv_data<-join(gene_lengths, snv_data, 'gene', type = 'left')
+  snv_data <- join(gene_lengths, snv_data, 'gene', type = 'left')
 
   snv_data$fpkm <- ifelse(snv_data$fpkm=='NULL' | snv_data$fpkm=='NA' | is.na(snv_data$fpkm), 0, snv_data$fpkm)
   snv_data$observed <- ifelse(is.numeric(snv_data$observed), snv_data$observed, 0)
 
-  hit_genes<-table(factor(snv_data$gene, levels = levels(snv_data$gene) ))
-  expression<-setNames(as.list(snv_data$fpkm), snv_data$gene)
+  hit_genes <- table(factor(snv_data$gene, levels = levels(snv_data$gene) ))
+  expression <- setNames(as.list(snv_data$fpkm), snv_data$gene)
 
   fun <- function(g) {
     # Calculate the fraction of geneome occupied by each gene
@@ -71,13 +69,13 @@ geneEnrichment <- function(..., snv_data=NULL, gene_lengths_in="data/gene_length
 
     p_val <- format.pval(stat$p.value, digits = 3)
 
-    gene_expect<-round(gene_expect,digits=3)
+    gene_expect <- round(gene_expect,digits=3)
     list(gene = g, length = genes[[g]], fpkm = expression[[g]], test=test, observed = hit_genes[g], expected = gene_expect, fc = fc, log2FC = log2FC, sig_val=sig_val, p_val=p_val)
   }
 
-  enriched<-lapply(levels(snv_data$gene), fun)
-  enriched<-do.call(rbind, enriched)
-  genesFC<-as.data.frame(enriched)
+  enriched <- lapply(levels(snv_data$gene), fun)
+  enriched <- do.call(rbind, enriched)
+  genesFC <- as.data.frame(enriched)
   # Filter for genes with few observations
 
   genesFC <- genesFC %>%
@@ -91,19 +89,7 @@ geneEnrichment <- function(..., snv_data=NULL, gene_lengths_in="data/gene_length
     dplyr::arrange(-eScore, p_val, -abs(log2FC)) %>%
     droplevels()
 
-  if(write){
-    cat("printing")
-    first.step <- lapply(genesFC, unlist)
-    second.step <- as.data.frame(first.step, stringsAsFactors = F)
-    arrange(second.step,desc(as.integer(log2FC)))
-
-    ggpubr::ggtexttable(second.step, rows = NULL, theme = ttheme("mGreen"))
-
-    gene_enrichment_table <- paste("gene_enrichment_table.tiff")
-    ggsave(paste("plots/", gene_enrichment_table, sep=""), width = 5.2, height = (nrow(genesFC)/3), dpi=300)
-  } else{
-    return(genesFC)
-  }
+  return(genesFC)
 }
 
 
