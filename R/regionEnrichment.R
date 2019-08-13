@@ -5,11 +5,12 @@
 #' @import data.table
 #' @export
 snvRegionEnrichment <- function(..., snv_data=NULL, bedDir='/Users/Nick_curie/Desktop/misc_bed/features', keep=NULL, chroms=c('2L', '2R', '3L', '3R', '4', 'X', 'Y'),
-                               slop=0, plot=TRUE, genome_length=118274340, intersect=FALSE, outDir, parseName=FALSE, minHits=10, return_overlaps=FALSE){
+                               slop=0, plot=TRUE, genome_length=118274340, intersect=FALSE, outDir, parseName=FALSE, minHits=10, return_overlaps=FALSE, type='snv'){
   if(missing(snv_data)){
     snv_data<-getData(...)
   }
 
+  if(type=='indel') snv_data$grouped_trans <- 'indel'
   snv_data <- snv_data %>%
     dplyr::filter(...) %>%
     dplyr::mutate(start = pos,
