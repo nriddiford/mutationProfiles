@@ -32,14 +32,14 @@ getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE, expre
     snv_data <- plyr::join(snv_data, name_conversion, "sample", type = 'left')
   }
   if(expression_source == 'flygut'){
-    cat("Reading expression data from source: 'flygut [Buchon]'")
+    cat("Reading expression data from source: 'flygut [Buchon]'\n\n")
     expression_data = read.delim('/Users/Nick_curie/Documents/Curie/Data/RNA-Seq_data/Buchon_summary_ISCs.txt')
     colnames(expression_data) <- c('id', 'symbol', 'name', 'isc', 'eb', 'ec', 'ee', 'vm')
     seq_data <- expression_data %>%
       dplyr::mutate(fpkm = isc) %>%
       dplyr::select(id, fpkm)
   } else{
-    cat("Reading expression data from source: 'Dutta'")
+    cat("Reading expression data from source: 'Dutta'\n\n")
     expression_data = system.file("extdata", "isc_genes_rnaSeq.txt")
     # Read in tissue specific expression data
     seq_data<-read.csv(header = F, expression_data)
