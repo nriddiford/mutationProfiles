@@ -1,6 +1,6 @@
 # mutationProfiles
 
-This is a tool to extract and analyse SNV information from VCF files produced by Mutect2 or Varscan2.   
+This is a tool to extract and analyse SNV information from VCF files produced by Mutect2 or Varscan2.
 This tool is under constant development. Please feel free to [contact me](mailto:nick.riddiford@curie.fr), or [raise an issue](https://github.com/nriddiford/mutationProfiles/issues) if you encounter any problems.
 
 
@@ -22,9 +22,21 @@ brew install cpanm
 cpanm Bio::Perl
 ```
 
+and [vcfParse](https://github.com/nriddiford/vcfParse), which can be installed from github:
+
+```
+git clone https://github.com/nriddiford/vcfParse.git
+cd vcfParse
+
+perl Makefile.PL
+make
+make test
+make install
+```
+
 ## Extracting SNV calls from Mutect2 or Freebayes vcf files or Varscan2 native format
 
-Move all `.vcf` files into `data/` and run `bash run_trinucs.sh -g <path to genome.fasta>`  
+Move all `.vcf` files into `data/` and run `bash run_trinucs.sh -g <path to genome.fasta>`
 For Varscan native data run: `bash run_trinucs.sh -v -g <path to genome.fasta>`
 
 This will run `script/trinucs.pl` on each `.vcf` file in `data/`, and write data from all samples to `data/combined_snvs.txt` in the following format:
@@ -80,20 +92,20 @@ setwd('mutationProfiles')
 The following functions are included:
 
 ```{R}
-chromDist : function (object = NA, notch = 0)  
-cleanTheme : function (base_size = 12)  
-featuresHit : function ()  
-geneHit : function (n = 10)  
-genomeSnvs : function ()  
-genTris : function ()  
-getData : function (infile = "data/annotated_snvs.txt")  
-mutSigs : function (samples = NA, pie = NA)  
-mutSpectrum : function ()  
-notchSnvs : function ()  
-samplesPlot : function (count = NA)  
-setCols : function (df, col)  
-snvStats : function ()  
-triFreq : function (genome = NA, count = NA)  
+chromDist : function (object = NA, notch = 0)
+cleanTheme : function (base_size = 12)
+featuresHit : function ()
+geneHit : function (n = 10)
+genomeSnvs : function ()
+genTris : function ()
+getData : function (infile = "data/annotated_snvs.txt")
+mutSigs : function (samples = NA, pie = NA)
+mutSpectrum : function ()
+notchSnvs : function ()
+samplesPlot : function (count = NA)
+setCols : function (df, col)
+snvStats : function ()
+triFreq : function (genome = NA, count = NA)
 ```
 ### See some stats
 
