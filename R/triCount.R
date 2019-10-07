@@ -15,7 +15,7 @@ triFreq <- function(genome=NULL, count=FALSE){
     genome <- BSgenome.Dmelanogaster.UCSC.dm6
   }
 
-  params <- new("BSParams", X = Dmelanogaster, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
+  params <- new("BSParams", X = genome, FUN = trinucleotideFrequency, exclude = c("M", "_"), simplify = TRUE)
   snv_data<-as.data.frame(bsapply(params))
   snv_data$genome<-as.integer(rowSums(snv_data))
   snv_data$genome_adj<-(snv_data$genome*2)
