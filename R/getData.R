@@ -12,6 +12,7 @@ getData <- function(..., infile = "data/annotated_snvs.txt", exclude=TRUE, expre
   input_list <- as.list(substitute(list(...)))
   lapply(X=input_list, function(x) {str(x);summary(x)})
   snv_data<-read.delim(infile, header = T)
+  cat("Reading SNVs from ", infile, "\n")
 
   if(type=='snv'){
     colnames(snv_data)=c("sample", "chrom", "pos", "ref", "alt", "tri", "trans", "decomposed_tri", "grouped_trans", "af", "caller", "variant_type", "status", "snpEff_anno", "feature", "gene", "id")

@@ -9,13 +9,15 @@
 #' @param binsize Control the density adjustment if density=TRUE, or the binwidth if density=FALSE. For histograms a value of 0.1 corresponds to 1/10th of a Mb [Default:0.1]
 #' @param density Plot as density? [Default: TRUE]
 #' @export
-chromDist <- function(..., snv_data=NULL, notch=FALSE, write=FALSE, binsize=0.1, density=TRUE){
+chromDist <- function(..., snv_data=NULL, notch=FALSE, write=FALSE, binsize=0.1, density=TRUE, chroms=c("2L", "2R", "3L", "3R", "X")){
   if(notch){
     snv_data<-exclude_notch(...)
     ext<-'_excl.N.png'
   } else if(missing(snv_data)){
     snv_data<-getData(...)
   }
+  snv_data <- snv_data %>%
+    dplyr::filter(chrom %in% chroms)
 
   cols<-setCols(snv_data, "grouped_trans")
   blueBar <- '#3B8FC7'

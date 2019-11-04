@@ -16,7 +16,11 @@ mutSigs <- function(..., snv_data=NULL, by_sample=FALSE, pie=FALSE, write=FALSE)
   }
   if(missing(snv_data)){
     snv_data<-getData(...)
+  } else{
+    snv_data <- snv_data %>%
+      dplyr::filter(...)
   }
+
   genome <- BSgenome.Dmelanogaster.UCSC.dm6
 
   if(!by_sample){
