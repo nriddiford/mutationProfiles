@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/bash
 
 usage() {
     echo "
@@ -19,7 +19,10 @@ varscan=0
 mutect=0
 indel=0
 annotate=0
+normalise=0
+somaticSeq=0
 clean=
+
 
 genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
 #genome=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Dmel_6.12.fasta # home
@@ -27,10 +30,12 @@ genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
 features=/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf
 #features=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf # home
 
-while getopts 'vmaichg:' flag; do
+while getopts 'nvmsaichg:' flag; do
   case "${flag}" in
     v)  varscan=1 ;;
     m)  mutect=1 ;;
+    s)  somaticSeq=1 ;;
+    n)  normalise=1 ;;
     i)  indel=1 ;;
     c)  clean=1 ;;
     g)  genome=${OPTARG};;
@@ -46,7 +51,7 @@ then
   exit 0
 fi
 
-if [[ -f "data/combined_snvs.txt" && $clean && $varscan -eq 1 || $mutect -eq 1 ]]
+if [[ -f "data/combined_snvs.txt" && $clean && $varscan -eq 1 || $mutect -eq 1 || $somaticSeq -eq 1 ]]
 then
   echo "Cleaning up old snv files"
   rm data/combined_snvs.txt
@@ -57,6 +62,63 @@ then
   echo "Cleaning up old indel files"
   rm data/combined_indels.txt
 fi
+
+mu_dir=data/raw/snpEff
+mu_ext=_mutect_ann
+
+if [[ $normalise -eq 1 ]]
+then
+  source ~/miniconda2/etc/profile.d/conda.sh
+  conda activate mutationProfiles
+  if hash bcftools
+  then
+    echo "${mu_dir}, ${mu_ext}"
+    for vcf in ${mu_dir}/*${mu_ext}.vcf
+    do
+      # bname=echo ${vcf##*/}
+      # name=${bname%_mutect_ann.vcf}
+      name=$(basename "$vcf" | cut -d '_' -f1)
+      echo "bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf"
+      bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf
+    done
+    mu_dir=data
+    mu_ext=mutect_norm
+  else
+    echo "bcftools not installed"
+  fi
+fi
+
+
+if [[ $mutect -eq 1 ]]
+then
+  conda deactivate
+  echo "${mu_dir}, ${mu_ext}"
+  for vcf in ${mu_dir}/*${mu_ext}.vcf
+  do
+    # bname=echo ${vcf##*/}
+    # name=${bname%_mutect_ann.vcf}
+    name=$(basename "$vcf" | cut -d '_' -f1)
+    #
+    # if hash bcftools
+    # then
+    #   echo "bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf"
+    #   bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf
+    #   echo "perl script/vcffilter.pl -v data/${name}_mutect_norm.vcf -s mutect -o data"
+    #   perl script/vcffilter.pl -v data/${name}_mutect_norm.vcf -s mutect -o data
+    # else
+    echo "perl script/vcffilter.pl -v $vcf -s mutect -o data"
+    perl script/vcffilter.pl -v $vcf -s mutect -o data
+    # fi
+
+  done
+
+  for filt_vcf in data/*mutect_filt.vcf
+  do
+    echo "perl script/trinucs.pl -g $genome -v $filt_vcf -c mutect -d data"
+    perl script/trinucs.pl -g $genome -v $filt_vcf -c mutect -d data
+  done
+fi
+
 
 if [[ $varscan -eq 1 ]]
 then
@@ -73,6 +135,19 @@ then
   done
 fi
 
+
+if [[ $somaticSeq -eq 1 ]]
+then
+  for filt_vcf in data/raw/snpEff/*_consensus_filt_ann.vcf
+  do
+    echo "perl script/trinucs.pl -g $genome -v $filt_vcf -c somaticSeq -d data"
+    # perl script/trinucs.pl -g $genome -v $filt_vcf -d data
+  done
+fi
+
+
+
+
 if [[ $indel -eq 1 ]]
 then
   for vcf in data/raw/indel/snpEff/*.vcf
@@ -88,25 +163,7 @@ then
   done
 fi
 
-if [[ $mutect -eq 1 ]]
-then
-  for vcf in data/raw/snpEff/*_mutect_ann.vcf
-  do
-    # bname=echo ${vcf##*/}
-    # name=${bname%_mutect_ann.vcf}
-    name=$(basename "$vcf" | cut -d '_' -f1)
-    echo "bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf"
-    bcftools norm -Ov -m-any $vcf > data/${name}_mutect_norm.vcf
-    echo "perl script/vcffilter.pl -v data/${name}_mutect_norm.vcf -s mutect -o data"
-    perl script/vcffilter.pl -v data/${name}_mutect_norm.vcf -s mutect -o data
-  done
 
-  for filt_vcf in data/*mutect_filt.vcf
-  do
-    echo "perl script/trinucs.pl -g $genome -v $filt_vcf -c mutect -d data"
-    perl script/trinucs.pl -g $genome -v $filt_vcf -c mutect -d data
-  done
-fi
 
 if [[ $annotate -eq 1 ]]
 then
