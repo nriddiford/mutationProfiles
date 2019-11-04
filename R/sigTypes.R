@@ -11,11 +11,19 @@
 #' @keywords signatures
 #' @export
 
-sigTypes <- function(..., snv_data=NULL, write=FALSE, min_contribution=0.1){
+sigTypes <- function(..., snv_data=NULL, write=FALSE, signatures=signatures.genome.cosmic.v3.may2019, min_contribution=0.1){
 
   if(missing(snv_data)){
     snv_data<-getData(...)
   }
+
+  snv_data <- snv_data %>%
+    dplyr::group_by(sample) %>%
+    dplyr::filter(max(row_number()) > 50) %>%
+    droplevels() %>%
+    dplyr::ungroup() %>%
+    as.data.frame()
+
 
   suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
   suppressMessages(require(deconstructSigs))
@@ -32,15 +40,12 @@ sigTypes <- function(..., snv_data=NULL, write=FALSE, min_contribution=0.1){
   l = list()
   for(s in levels(snv_data$sample)) {
     snv_count<-nrow(filter(snv_data, sample == s))
+    cat(s, snv_count, sep="\t", "\n")
 
-    if(snv_count > 50){
-      cat(s, snv_count, sep="\t", "\n")
-
-      sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = s,
-                                contexts.needed = TRUE,
-                                tri.counts.method = scaling_factor)
-      l[[s]] <- sig_plot
-    }
+    sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures, sample.id = s,
+                              contexts.needed = TRUE,
+                              tri.counts.method = scaling_factor)
+    l[[s]] <- sig_plot
   }
 
   mutSigs<-do.call(rbind, l)
@@ -66,13 +71,13 @@ sigTypes <- function(..., snv_data=NULL, write=FALSE, min_contribution=0.1){
           axis.text = element_text(size=30)
     )
 
+  print(p)
 
   if(write){
     sigTypes<-paste("sigTypes.pdf")
     cat("Writing file", sigTypes, "\n")
     ggsave(paste("plots/", sigTypes, sep=""), width = 20, height = 10)
   }
-  p
   return(mutData)
 }
 
