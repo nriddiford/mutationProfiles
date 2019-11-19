@@ -121,7 +121,7 @@ sub filter_vcf{
       }
 
       # Filter if alt AD + ref AD < 5
-      if ($t_alt_ad + $t_ref_ad < 5){
+      if ($t_alt_ad + $t_ref_ad < 20){
         $filter_count{'depth'}++;
         push @{$filter_reasons{$id}}, 'depth';
         my $sample_depth = $t_alt_ad + $t_ref_ad;
