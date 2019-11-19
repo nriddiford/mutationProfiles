@@ -1,4 +1,5 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
+
 use warnings;
 use strict;
 use Data::Dumper;
@@ -55,13 +56,12 @@ my $statements;
 if (scalar %{$statements}){
   p(%{$statements});
 }
-
-$data_ref = parse_varscan($in_file) if $in_file;
+# $data_ref = parse_varscan($in_file) if $in_file;
 my ($filtered_data_ref) = get_context($data_ref, $type);
 my ($sample, $snv_dist_ref) = count($filtered_data_ref, $type);
 # Write to R-friendly dataframe
-
 write_dataframe($sample, $snv_dist_ref, $type, $snv_dist_file);
+
 
 sub get_genome {
   my $genome_file = shift;
@@ -84,6 +84,7 @@ sub get_genome {
   return(\%genome);
 }
 
+
 sub parse_varscan {
   my $in_file = shift;
   say "Reading in varscan file: $in_file";
@@ -103,6 +104,7 @@ sub parse_varscan {
   return(\@vars);
 }
 
+
 sub parse_vcf {
   my ($vcf_file, $caller) = @_;
   my ( $name, $extention ) = split(/\.([^.]+)$/, basename($vcf_file), 2);
@@ -115,7 +117,13 @@ sub parse_vcf {
   my ($snpData, $info, $filtered_vars, $heads, $sams) = vcfParse::parse($vcf_file);
 
   for(@{$heads}){
-    if (m/mutect/i){
+    say;
+    if (m/MVSK/i){
+      say "This is a somaticSeq consensus file";
+      $caller = 'somaticSeq';
+      last;
+    }
+    elsif (m/mutect/i){
       say "This is a mutect file";
       $caller = 'mutect';
       last;
@@ -123,6 +131,11 @@ sub parse_vcf {
     elsif (m/varscan/i){
       say "This is a varscan file";
       $caller = 'varscan';
+      last;
+    }
+    elsif (m/combinevcf/i){
+      say "This is a consensus file";
+      $caller = 'consensus';
       last;
     }
   }
@@ -151,7 +164,6 @@ sub parse_vcf {
         next unless length $hit_gene;
       }
       my $af;
-
       if ($caller eq 'varscan' and $sample_info{$_}{$tumour}{FREQ}){
         $af = $sample_info{$_}{$tumour}{FREQ};
         ($af) =~ s/%//;
@@ -160,8 +172,24 @@ sub parse_vcf {
       elsif ($caller eq 'mutect' and $sample_info{$_}{$tumour}{AF}){
         $af = $sample_info{$_}{$tumour}{AF};
       }
+      if ($caller eq 'consensus' and $sample_info{$_}{$tumour}{VAF}){
+        $af = $sample_info{$_}{$tumour}{VAF};
+        my @callers =  split(",", $info{$_}{MVSKF});
+        my @tools = qw(mutect2 varscan2 somaticsniper strelka freebayes);
+        my @called_by;
 
-      push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $caller, $variant_type, $status, $hit_gene];
+        my $index = 0;
+        foreach (@callers) {
+          push @called_by, $tools[$index] if $_ == 1;
+          $index++;
+        }
+        my $callers = join(",", @called_by);
+        push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $callers, $variant_type, $status, $hit_gene];
+      }
+      else{
+          push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $caller, $variant_type, $status, $hit_gene];
+      }
+
     }
 
   return(\@vars, \%statements);
@@ -223,6 +251,7 @@ sub group_muts {
   return($trinuc, $new_ref, $new_alt);
 }
 
+
 sub rev_comp {
   my $trinuc = shift;
   my $rev_tri = reverse($trinuc);
@@ -250,18 +279,16 @@ sub count {
       if ($alt =~ /^\-/){
         $mut_type = 'DEL';
       }
-
       push @snv_dist, [ $sample, $chrom, $pos, $ref, "\'$alt\'", $af, $caller, $trinuc, $mut_type, $trans_trinuc, $variant_type, $status, $hit_gene ];
     }
     else{
       push @snv_dist, [ $sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, "$ref>$alt", $trans_trinuc, "$grouped_ref>$grouped_alt", $variant_type, $status, $hit_gene ];
     }
-
-
     # debug($chrom, $pos, $ref, $alt, $trinuc) if $debug;
   }
   return($sample, \@snv_dist);
 }
+
 
 sub write_dataframe {
   my ($sample, $snv_dist_ref, $type, $snv_dist_file) = @_;
@@ -281,7 +308,6 @@ sub write_dataframe {
   say "Printing out genome-wide snv distribution '$outlocation' for $sample...";
 
   foreach my $var ( @$snv_dist_ref ) {
-
     if ($type eq 'indel'){
       my ($sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $mut_type, $trans_trinuc, $variant_type, $status, $hit_gene) = @$var;
       print $snv_dist join("\t", $sample, $chrom, $pos, $ref, $alt, $trinuc, $mut_type, $trans_trinuc, $af, $caller, $variant_type, $status, $hit_gene ) . "\n";
@@ -290,8 +316,6 @@ sub write_dataframe {
       my ($sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $trans, $decomp_trinuc, $grouped_trans, $variant_type, $status, $hit_gene) = @$var;
       print $snv_dist join("\t", $sample, $chrom, $pos, $ref, $alt, $trinuc, $trans, $decomp_trinuc, $grouped_trans, $af, $caller, $variant_type, $status, $hit_gene ) . "\n";
     }
-
-
     # snv2gene = $_ + $hit_feature, $hit_gene, $hit_id
   }
 }
@@ -304,6 +328,7 @@ sub write_dataframe {
 #   printf "%-30s %-s\n", "Trinucleotide:", $trinuc;
 #   say "***********";
 # }
+
 
 sub usage {
   print
