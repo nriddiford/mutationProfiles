@@ -21,6 +21,7 @@ indel=0
 annotate=0
 normalise=0
 somaticSeq=0
+ensemble=0
 clean=
 
 
@@ -30,11 +31,12 @@ genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
 features=/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf
 #features=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf # home
 
-while getopts 'nvmsaichg:' flag; do
+while getopts 'nvmsaeichg:' flag; do
   case "${flag}" in
     v)  varscan=1 ;;
     m)  mutect=1 ;;
     s)  somaticSeq=1 ;;
+    e)  ensemble=1 ;;
     n)  normalise=1 ;;
     i)  indel=1 ;;
     c)  clean=1 ;;
@@ -51,7 +53,7 @@ then
   exit 0
 fi
 
-if [[ -f "data/combined_snvs.txt" && $clean && $varscan -eq 1 || $mutect -eq 1 || $somaticSeq -eq 1 ]]
+if [[ -f "data/combined_snvs.txt" && $clean && $varscan -eq 1 || $mutect -eq 1 || $ensemble -eq 1 ]]
 then
   echo "Cleaning up old snv files"
   rm data/combined_snvs.txt
@@ -146,6 +148,14 @@ then
 fi
 
 
+if [[ $ensemble -eq 1 ]]
+then
+  for filt_vcf in data/raw/snpEff/*_ann.vcf
+  do
+    echo "perl script/trinucs.pl -g $genome -v $filt_vcf -c consensus -d data"
+    perl script/trinucs.pl -g $genome -v $filt_vcf -c consensus -d data
+  done
+fi
 
 
 if [[ $indel -eq 1 ]]
@@ -162,7 +172,6 @@ then
     perl script/trinucs.pl -g $genome -v $filt_vcf -t indel -d data -o combined_indels.txt
   done
 fi
-
 
 
 if [[ $annotate -eq 1 ]]
