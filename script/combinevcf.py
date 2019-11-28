@@ -141,7 +141,7 @@ def combine_vars(options):
 
 def write_vcf(vars, options):
     tumour, normal = find_normal(options)
-    df = pd.DataFrame(vars, columns = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', tumour, normal])
+    df = pd.DataFrame(vars, columns=['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', tumour, normal])
 
     chroms = ['2L', '2R', '3L', '3R', '4', 'X', 'Y']
 
