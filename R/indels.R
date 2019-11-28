@@ -5,8 +5,12 @@
 #' @keywords count
 #' @export
 #'
-plot_indels <- function(..., exclude=TRUE, indels='data/annotated_indels.txt'){
-  indel_data <- mutationProfiles::getData(..., infile = indels, exclude=exclude, type = 'indel')
+plot_indels <- function(..., indel_data=NULL){
+
+  if(missing(indel_data)){
+    indel_data <- mutationProfiles::getData(..., infile ='data/annotated_indels.txt', exclude=F, type = 'indel')
+  }
+
   calls_by_sample <- indel_data %>%
     dplyr::group_by(sample) %>%
     dplyr::tally()
@@ -35,10 +39,11 @@ plot_indels <- function(..., exclude=TRUE, indels='data/annotated_indels.txt'){
 #' @import dplyr
 #' @keywords count
 #' @export
-indel_lengths <- function(..., exclude=TRUE, indels='data/annotated_indels.txt', plot=TRUE, count=TRUE){
+indel_lengths <- function(..., indel_data=NULL, plot=TRUE, count=TRUE){
 
-  indel_data <- mutationProfiles::getData(...,infile = indels, exclude=exclude, type = 'indel')
-
+  if(missing(indel_data)){
+    indel_data <- mutationProfiles::getData(..., infile ='data/annotated_indels.txt', exclude=F, type = 'indel')
+  }
   indel_lengths <- indel_data %>%
     dplyr::mutate(length = nchar(as.character(alt))) %>%
     dplyr::mutate(type_class = as.factor(ifelse(length>3,
@@ -83,10 +88,11 @@ indel_lengths <- function(..., exclude=TRUE, indels='data/annotated_indels.txt',
 #' Tally inserted/deleted sequences
 #' @import dplyr
 #' @export
-indel_seqs <- function(..., exclude=TRUE, indels='data/annotated_indels.txt', plot=TRUE){
+indel_seqs <- function(..., indel_data=NULL, plot=TRUE){
 
-  indel_data <- mutationProfiles::getData(..., infile = indels, exclude=exclude, type = 'indel')
-
+  if(missing(indel_data)){
+    indel_data <- mutationProfiles::getData(..., infile ='data/annotated_indels.txt', exclude=F, type = 'indel')
+  }
   seqs <- indel_data %>%
     dplyr::mutate(sex = ifelse(stringr::str_detect(sample, 'D'), "F", "M")) %>%
     dplyr::group_by(sex, type, alt) %>%
