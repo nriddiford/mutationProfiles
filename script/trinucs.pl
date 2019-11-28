@@ -6,6 +6,7 @@ use Data::Dumper;
 use Data::Printer;
 use feature qw/ say /;
 use FindBin '$Script';
+use List::Util qw/sum/;
 # use FindBin qw($Bin);
 # use File::Spec;
 # use lib File::Spec->catdir($FindBin::Bin, '..', 'lib/');
@@ -17,13 +18,13 @@ use Getopt::Long qw/ GetOptions /;
 
 my $genome_file;
 my $vcf_file;
-my $snv_dist_file = 'combined_snvs.txt';
 my $out_dir = '.';
 my $help;
 my $in_file; # Varscan native
 my $snpeff = 0;
 my $type = 'snv';
 my $caller;
+my $snv_dist_file = "combined_${type}s.txt";
 
 # Should add score threshold option
 GetOptions( 'genome=s'				  =>			\$genome_file,
@@ -56,10 +57,13 @@ my $statements;
 if (scalar %{$statements}){
   p(%{$statements});
 }
-# $data_ref = parse_varscan($in_file) if $in_file;
+
+$data_ref = parse_varscan($in_file) if $in_file;
 my ($filtered_data_ref) = get_context($data_ref, $type);
 my ($sample, $snv_dist_ref) = count($filtered_data_ref, $type);
 # Write to R-friendly dataframe
+$snv_dist_file = "combined_${type}s.txt";
+
 write_dataframe($sample, $snv_dist_ref, $type, $snv_dist_file);
 
 
@@ -116,81 +120,106 @@ sub parse_vcf {
 
   my ($snpData, $info, $filtered_vars, $heads, $sams) = vcfParse::parse($vcf_file);
 
-  for(@{$heads}){
-    say;
-    if (m/MVSK/i){
-      say "This is a somaticSeq consensus file";
-      $caller = 'somaticSeq';
-      last;
-    }
-    elsif (m/mutect/i){
-      say "This is a mutect file";
-      $caller = 'mutect';
-      last;
-    }
-    elsif (m/varscan/i){
-      say "This is a varscan file";
-      $caller = 'varscan';
-      last;
-    }
-    elsif (m/combinevcf/i){
-      say "This is a consensus file";
-      $caller = 'consensus';
-      last;
+  if(not $caller){
+    for(@{$heads}){
+      if (m/MVSK/i){
+        say "This is a somaticSeq consensus file";
+        $caller = 'somaticSeq';
+        last;
+      }
+      elsif (m/mutect/i){
+        say "This is a mutect file";
+        $caller = 'mutect';
+        last;
+      }
+      elsif (m/varscan/i){
+        say "This is a varscan file";
+        $caller = 'varscan';
+        last;
+      }
+      elsif (m/combinevcf/i){
+        say "This is a consensus file";
+        $caller = 'consensus';
+        last;
+      }
     }
   }
+  else {say "This is a $caller file"};
 
-    for ( sort { @{ $snpData->{$a}}[0] cmp @{ $snpData->{$b}}[0] or
-          @{ $snpData->{$a}}[1] <=> @{ $snpData->{$b}}[1]
-        }  keys %{ $snpData } ){
-      my ( $chrom, $pos, $id, $ref, $alt, $quality_score, $filt, $info_block, $format_block, $tumour_info_block, $normal_info_block, $filters, $samples ) = @{ $snpData->{$_} };
+  my $depth_filtered = 0;
+  my $count = 0;
 
-      my (%info)  = @{ $info->{$_}->[5] };
-      my (%sample_info)  = @{ $info->{$_}->[6] };
-      my (@samples) = @{ $sams };
+  for ( sort { @{ $snpData->{$a}}[0] cmp @{ $snpData->{$b}}[0] or
+        @{ $snpData->{$a}}[1] <=> @{ $snpData->{$b}}[1]
+      }  keys %{ $snpData } ){
+    my ( $chrom, $pos, $id, $ref, $alt, $quality_score, $filt, $info_block, $format_block, $tumour_info_block, $normal_info_block, $filters, $samples ) = @{ $snpData->{$_} };
 
-      my ($tumour, $normal) = @samples;
-      if ($caller eq 'varscan'){
-        ($tumour, $normal) = reverse @samples;
-      }
+    $count++;
 
-      my ($variant_type, $status, $hit_gene, $other) = ("", "", "", "");
+    my (%info)  = @{ $info->{$_}->[5] };
+    my (%sample_info)  = @{ $info->{$_}->[6] };
+    my (@samples) = @{ $sams };
 
-      if ($info{$_}{ANN}){
-        $statements{'caller'} = "This file has been annotated by SnpEff";
-        my @hits = split(/,/, $info{$_}{ANN});
-        my @annotated_parts = split(/\|/, $hits[0]);
-        ($variant_type, $status, $hit_gene) = @annotated_parts[1..3];
-        next unless length $hit_gene;
-      }
-      my $af;
-      if ($caller eq 'varscan' and $sample_info{$_}{$tumour}{FREQ}){
-        $af = $sample_info{$_}{$tumour}{FREQ};
-        ($af) =~ s/%//;
-        $af = $af/100;
-      }
-      elsif ($caller eq 'mutect' and $sample_info{$_}{$tumour}{AF}){
-        $af = $sample_info{$_}{$tumour}{AF};
-      }
-      if ($caller eq 'consensus' and $sample_info{$_}{$tumour}{VAF}){
-        $af = $sample_info{$_}{$tumour}{VAF};
-        my @callers =  split(",", $info{$_}{MVSKF});
-        my @tools = qw(mutect2 varscan2 somaticsniper strelka freebayes);
-        my @called_by;
-
-        my $index = 0;
-        foreach (@callers) {
-          push @called_by, $tools[$index] if $_ == 1;
-          $index++;
-        }
-        my $callers = join(",", @called_by);
-        push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $callers, $variant_type, $status, $hit_gene];
-      }
-      else{
-          push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $caller, $variant_type, $status, $hit_gene];
-      }
-
+    my ($tumour, $normal) = @samples;
+    if ($caller eq 'varscan' or $caller eq 'consensus'){
+      ($tumour, $normal) = reverse @samples;
     }
+
+    my ($variant_type, $status, $hit_gene, $other) = ("", "", "", "");
+
+    if ($info{$_}{ANN}){
+      $statements{'caller'} = "This file has been annotated by SnpEff";
+      my @hits = split(/,/, $info{$_}{ANN});
+      my @annotated_parts = split(/\|/, $hits[0]);
+      ($variant_type, $status, $hit_gene) = @annotated_parts[1..3];
+      next unless length $hit_gene;
+    }
+    my $af;
+    if ($caller eq 'varscan' and $sample_info{$_}{$tumour}{FREQ}){
+      $af = $sample_info{$_}{$tumour}{FREQ};
+      ($af) =~ s/%//;
+      $af = $af/100;
+    }
+    elsif ($caller eq 'mutect' and $sample_info{$_}{$tumour}{AF}){
+      $af = $sample_info{$_}{$tumour}{AF};
+    }
+    elsif ($caller eq 'consensus' and $sample_info{$_}{$tumour}{VAF}){
+      my $t_depth = sum(split(",", $sample_info{$_}{$tumour}{DP4}));
+      my $n_depth = sum(split(",", $sample_info{$_}{$normal}{DP4}));
+
+      print("t depth: $sample_info{$_}{$tumour}{DP4} [$t_depth]\tn depth: $sample_info{$_}{$normal}{DP4} [$n_depth]\n");
+
+      if($n_depth < 20 ){
+        $depth_filtered++;
+        $statements{'depth'} = "$depth_filtered/$count calls filtered with normal depth < 20";
+        next;
+      }
+
+      $af = $sample_info{$_}{$tumour}{VAF};
+      my $caller_key = 'MVSKF';
+      my @tools = qw(mutect2 varscan2 somaticsniper strelka freebayes);
+
+      if($type eq 'indel') {
+        $caller_key = 'MVK';
+        @tools = qw(mutect2 varscan2 strelka);
+      }
+      my @callers =  split(",", $info{$_}{$caller_key});
+
+      my @called_by;
+
+      my $index = 0;
+      foreach (@callers) {
+        push @called_by, $tools[$index] if $_ == 1;
+        $index++;
+      }
+      my $callers = join(",", @called_by);
+      push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $callers, $variant_type, $status, $hit_gene];
+    }
+    else{
+        push @vars, [$sample, $chrom, $pos, $ref, $alt, $af, $caller, $variant_type, $status, $hit_gene];
+    }
+
+  }
 
   return(\@vars, \%statements);
 }
@@ -294,10 +323,7 @@ sub write_dataframe {
   my ($sample, $snv_dist_ref, $type, $snv_dist_file) = @_;
 
   # my $outlocation = File::Spec->catdir( $out_dir, $snv_dist_file);
-  say $snv_dist_file;
   my $outlocation = $out_dir . "/" . $snv_dist_file;
-
-  say $outlocation;
 
   open my $snv_dist, '>>',  $outlocation or die $!;
 
@@ -309,7 +335,11 @@ sub write_dataframe {
 
   foreach my $var ( @$snv_dist_ref ) {
     if ($type eq 'indel'){
+      # print(join(", ", @$var) . "\n");
       my ($sample, $chrom, $pos, $ref, $alt, $af, $caller, $trinuc, $mut_type, $trans_trinuc, $variant_type, $status, $hit_gene) = @$var;
+
+      $af ||= 0;
+
       print $snv_dist join("\t", $sample, $chrom, $pos, $ref, $alt, $trinuc, $mut_type, $trans_trinuc, $af, $caller, $variant_type, $status, $hit_gene ) . "\n";
     }
     else {
