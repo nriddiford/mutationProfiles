@@ -6,6 +6,7 @@ usage() {
   options:
     -v    process varscan calls
     -m    process mutect2 calls
+    -e    process enseble calls (somaticSeq + Freebayes)
     -i    process varscan indel calls
     -a    annotate variants
     -c    clean up old files
@@ -160,16 +161,16 @@ fi
 
 if [[ $indel -eq 1 ]]
 then
-  for vcf in data/raw/indel/snpEff/*.vcf
+  for vcf in data/raw/indel/snpEff/*_ann.vcf
   do
-    echo "perl script/vcffilter.pl -v $vcf -s indel -o data"
-    perl script/vcffilter.pl -v $vcf -s indel -o data
-  done
-
-  for filt_vcf in data/*indel_filt.vcf
-  do
-    echo "perl script/trinucs.pl -g $genome -v $filt_vcf -t indel -d data -o combined_indels.txt"
-    perl script/trinucs.pl -g $genome -v $filt_vcf -t indel -d data -o combined_indels.txt
+  #   echo "perl script/vcffilter.pl -v $vcf -s indel -o data"
+  #   perl script/vcffilter.pl -v $vcf -s indel -o data
+  # done
+  #
+  # for filt_vcf in data/*indel_filt.vcf
+  # do
+    echo "perl script/trinucs.pl -g $genome -v $vcf -c consensus -t indel -d data -o combined_indels.txt"
+    perl script/trinucs.pl -g $genome -v $vcf -c consensus -t indel -d data -o combined_indels.txt
   done
 fi
 
