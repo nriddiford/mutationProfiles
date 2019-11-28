@@ -32,7 +32,11 @@ def find_normal(options):
 
 
 def extract_freebayes(options, tumour, normal):
-    vcf_reader = vcf.Reader(open(options.freebayes, 'r'))
+    mode = 'r'
+    if options.freebayes.endswith('.gz'):
+        mode = 'rb'
+
+    vcf_reader = vcf.Reader(open(options.freebayes, mode))
 
     freebayes_vars = defaultdict(lambda: defaultdict(dict))
     vars = []
@@ -40,15 +44,25 @@ def extract_freebayes(options, tumour, normal):
 
     for record in vcf_reader:
         count += 1
-        vaf = round((record.genotype(tumour)['AO'] / (record.genotype(tumour)['AO'] + record.genotype(tumour)['RO'])), 2)
-        freebayes_vars[record.CHROM][record.POS] = [record.REF, str(record.ALT[0]), record.INFO, record.genotype(tumour)['GT'], vaf]
+        tumour_vaf = round((record.genotype(tumour)['AO'] / (record.genotype(tumour)['AO'] + record.genotype(tumour)['RO'])), 2)
+        normal_vaf = round((record.genotype(normal)['AO'] / (record.genotype(normal)['AO'] + record.genotype(normal)['RO'])), 2)
+        tumour_gt, normal_gt = (record.genotype(tumour)['GT'], record.genotype(normal)['GT'])
+        tumour_dp, normal_dp = (record.genotype(tumour)['DP'], record.genotype(normal)['DP'])
+
+        t_dict = {'GT': tumour_gt, 'VAF': tumour_vaf, 'DP': tumour_dp}
+        n_dict = {'GT': normal_gt, 'VAF': normal_vaf, 'DP': normal_dp}
+
+        freebayes_vars[record.CHROM][record.POS] = [record.REF, str(record.ALT[0]), record.INFO, t_dict, n_dict]
 
     print("%s freebayes vars" % (count))
     return freebayes_vars
 
 
 def extract_somseq(options, tumour, normal):
-    vcf_reader = vcf.Reader(open(options.somseq, 'r'))
+    mode = 'r'
+    if options.somseq.endswith('.gz'):
+        mode = 'rb'
+    vcf_reader = vcf.Reader(open(options.somseq, mode))
 
     somseq_vars = defaultdict(lambda: defaultdict(dict))
 
@@ -60,7 +74,14 @@ def extract_somseq(options, tumour, normal):
         if record.FILTER:
             filter = record.FILTER[0]
 
-        somseq_vars[record.CHROM][record.POS] = [record.REF, str(record.ALT[0]), record.INFO['MVSK'], record.genotype(tumour)['GT'], record.genotype(tumour)['VAF'], filter]
+        tumour_gt, normal_gt = (record.genotype(tumour)['GT'], record.genotype(normal)['GT'])
+        tumour_vaf, normal_vaf = (record.genotype(tumour)['VAF'], record.genotype(normal)['VAF'])
+        tumour_dp, normal_dp = (record.genotype(tumour)['DP4'], record.genotype(normal)['DP4'])
+
+        t_dict = {'GT': tumour_gt, 'VAF': tumour_vaf, 'DP': sum(tumour_dp)}
+        n_dict = {'GT': normal_gt, 'VAF': normal_vaf, 'DP': sum(normal_dp)}
+
+        somseq_vars[record.CHROM][record.POS] = [record.REF, str(record.ALT[0]), record.INFO['MVSK'], t_dict, n_dict, filter]
 
     # print(json.dumps(somseq_vars, indent=4, sort_keys=True))
     print("%s somatic seq vars" % (count))
@@ -69,7 +90,6 @@ def extract_somseq(options, tumour, normal):
 
 
 def combine_vars(options):
-
     tumour, normal = find_normal(options)
     freebayes_vars = extract_freebayes(options, tumour, normal)
 
@@ -79,7 +99,7 @@ def combine_vars(options):
     intersect = 0
     for c in somseq_vars:
         for p in somseq_vars[c]:
-            ref, alt, callers, gt, vaf, filter = somseq_vars[c][p]
+            ref, alt, callers, tumour, normal, filter = somseq_vars[c][p]
             if freebayes_vars[c][p]:
                 intersect += 1
                 callers.append(1)
@@ -91,7 +111,10 @@ def combine_vars(options):
             callers = str(callers).strip('[]')
 
             info = 'MVSKF=%s;TOOLS=%s' % (callers.replace(' ', ''), numtools)
-            merged_vars.append([c, p, '.', ref, alt, 0, filter, info, 'GT:VAF', ':'.join([gt, str(vaf)])])
+            t_parts = ':'.join(map(str, [tumour['GT'], tumour['VAF'], tumour['DP'] ]))
+            n_parts = ':'.join(map(str, [normal['GT'], normal['VAF'], normal['DP'] ]))
+
+            merged_vars.append([c, p, '.', ref, alt, 0, filter, info, 'GT:VAF:DP', t_parts, n_parts])
 
     print("%s vars in both vcfs" % (intersect))
     print("Merged overlaps %s " % (len(merged_vars)))
@@ -101,20 +124,29 @@ def combine_vars(options):
         for p in freebayes_vars[c]:
             if freebayes_vars[c][p]:
                 additional_vars += 1
-                ref, alt, info, gt, vaf = freebayes_vars[c][p]
-                merged_vars.append([c, p, '.', ref, alt, 0, 'PASS', 'MVSKF=0,0,0,0,1;TOOLS=1', 'GT:VAF', ':'.join([gt, str(vaf)])])
+                ref, alt, info, t_dict, n_dict = freebayes_vars[c][p]
+                t_parts = ':'.join(map(str, [tumour['GT'], tumour['VAF'], tumour['DP']]))
+                n_parts = ':'.join(map(str, [normal['GT'], normal['VAF'], normal['DP'] ]))
+
+                merged_vars.append([c, p, '.', ref, alt, 0, 'PASS', 'MVSKF=0,0,0,0,1;TOOLS=1', 'GT:VAF:DP', t_parts, n_parts])
 
     print("Adding %s vars to somseq" % (additional_vars))
+
     # print(json.dumps(merged_vars, indent=4, sort_keys=True))
 
-    write_vcf(merged_vars, options, tumour)
+    write_vcf(merged_vars, options)
 
     return True
 
 
-def write_vcf(vars, options, tumour):
-    dfObj = pd.DataFrame(vars, columns = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', tumour])
-    dfObj = dfObj.sort_values(by=['#CHROM', 'POS'])
+def write_vcf(vars, options):
+    tumour, normal = find_normal(options)
+    df = pd.DataFrame(vars, columns = ['#CHROM', 'POS', 'ID', 'REF', 'ALT', 'QUAL', 'FILTER', 'INFO', 'FORMAT', tumour, normal])
+
+    chroms = ['2L', '2R', '3L', '3R', '4', 'X', 'Y']
+
+    df = df.sort_values(by=['#CHROM', 'POS'])
+    df = df[df['#CHROM'].isin(chroms)]
 
     output_VCF = '_'.join([tumour, "merged.vcf"])
     with open(output_VCF, 'w') as vcf:
@@ -123,7 +155,9 @@ def write_vcf(vars, options, tumour):
         vcf.write("##somaticSeq=" + options.somseq + "\n")
         vcf.write("##Freebayes=" + options.freebayes + "\n")
 
-    dfObj.to_csv(output_VCF, sep="\t", mode='a', index=False)
+    df.to_csv(output_VCF, sep="\t", mode='a', index=False)
+
+    return True
 
 
 def get_args():
