@@ -39,7 +39,7 @@ then
     output_base=$(basename "$f" | cut -d '_' -f1)
     echo $output_base
     echo $f
-    echo "$freebayes/${output_base}_freebayes.vcf"
-    python script/combinevcf.py --somseq $f --freebayes $freebayes/${output_base}_freebayes.vcf
+    echo "$freebayes/${output_base}_freebayes.vcf.gz"
+    python script/combinevcf.py --somseq $f --freebayes $freebayes/${output_base}_freebayes.vcf.gz
   done
 fi
