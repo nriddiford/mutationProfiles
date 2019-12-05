@@ -161,7 +161,7 @@ sub parse_vcf {
     my (@samples) = @{ $sams };
 
     my ($tumour, $normal) = @samples;
-    if ($caller eq 'varscan' or $caller eq 'consensus'){
+    if ($caller eq 'varscan' or $type eq 'indel'){
       ($tumour, $normal) = reverse @samples;
     }
 
@@ -184,15 +184,17 @@ sub parse_vcf {
       $af = $sample_info{$_}{$tumour}{AF};
     }
     elsif ($caller eq 'consensus' and $sample_info{$_}{$tumour}{VAF}){
-      my $t_depth = sum(split(",", $sample_info{$_}{$tumour}{DP4}));
-      my $n_depth = sum(split(",", $sample_info{$_}{$normal}{DP4}));
+      if($type eq 'indel') {
+        my $t_depth = sum(split(",", $sample_info{$_}{$tumour}{DP4}));
+        my $n_depth = sum(split(",", $sample_info{$_}{$normal}{DP4}));
 
-      print("t depth: $sample_info{$_}{$tumour}{DP4} [$t_depth]\tn depth: $sample_info{$_}{$normal}{DP4} [$n_depth]\n");
+        print("t depth: $sample_info{$_}{$tumour}{DP4} [$t_depth]\tn depth: $sample_info{$_}{$normal}{DP4} [$n_depth]\n");
 
-      if($n_depth < 20 ){
-        $depth_filtered++;
-        $statements{'depth'} = "$depth_filtered/$count calls filtered with normal depth < 20";
-        next;
+        if($n_depth < 20 ){
+          $depth_filtered++;
+          $statements{'depth'} = "$depth_filtered/$count calls filtered with normal depth < 20";
+          next;
+        }
       }
 
       $af = $sample_info{$_}{$tumour}{VAF};
