@@ -8,6 +8,9 @@
 snvStats <- function(..., snv_data=NULL){
   if(missing(snv_data)){
     snv_data<-getData(...)
+  } else{
+    snv_data <- snv_data %>%
+      dplyr::filter(...)
   }
 
   cat("sample", "snvs", sep='\t', "\n")
