@@ -9,6 +9,34 @@ use feature qw/ say /;
 
 use List::Util 'sum';
 
+use Getopt::Long qw/ GetOptions /;
+
+my $chroms;
+my $annontation_file = '/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf';
+
+
+# Should add score threshold option
+GetOptions( 'chroms=s'				  =>			\$genome_file,
+            'infile=s'          =>      \$in_file,
+            'caller=s'          =>      \$caller,
+            'vcf=s'						  =>			\$vcf_file,
+            'snpEff'            =>      \$snpeff,
+            'type=s'            =>      \$type,
+     			  'out-file=s'        =>	 		\$snv_dist_file,
+            'dir=s'             =>      \$out_dir,
+     			  'help'         		  =>   		\$help
+) or die usage();
+
+if ($help)  { exit usage() }
+
+unless ( ($in_file or $vcf_file) and $genome_file) {
+  say "Both input file and a genome file required";
+  exit usage()
+}
+
+my $gtf_file = $annontation_file;
+
+
 my @chroms = qw/ 2L 2R 3L 3R X Y 4 /;
 my @lengths = qw/ 23513712 25286936 28110227 32079331 23542271 3667352 1348131 /;
 
