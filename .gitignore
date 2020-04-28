@@ -7,3 +7,5 @@ data/*
 PD4120a-chr4-1-2000000_test
 mut_sigs.png
 *.png
+protein_muts.pdf
+combined_indels.txt
