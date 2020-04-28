@@ -17,6 +17,7 @@ def find_normal(options):
     config = pd.read_csv(options.config, delimiter="\t", index_col=False, na_filter=False, names=['sample', 'assay'])
 
     samples = config['sample'].tolist()
+
     it = iter(samples)
 
     s = {}
@@ -38,6 +39,7 @@ def filter_all(pon, options):
     for file in os.listdir(dir):
         if file.endswith("_merged.vcf"):
             options.vcf_in = os.path.join(dir, file)
+            print(options.vcf_in)
             filter_vars(pon, options)
 
     return True
@@ -171,7 +173,7 @@ def get_args():
     parser.add_option("--config", dest="config", action="store", help="mapping for tumour/normal samples")
     parser.add_option("-o", "--out_file", dest="out_file", action="store", help="File to write annotated vars to")
     parser.set_defaults(pon='/Volumes/perso/Analysis/Analysis/Mutect2/panel_of_normals.vcf.gz',
-                        config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.tsv',
+                        config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.txt',
                         chroms=['2L', '2R', '3L', '3R', '4', 'X', 'Y'])
 
     options, args = parser.parse_args()
