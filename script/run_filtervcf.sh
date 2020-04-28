@@ -26,14 +26,16 @@ while getopts 'd:p:o:' flag; do
   esac
 done
 
+echo "python script/filtervcf.py -d $dir --panel-of-normals $panel_of_normals"
+python script/filtervcf.py -d $dir --panel-of-normals $panel_of_normals
 
-if [ -d $dir ]
-then
-  echo $dir
-  for f in ${dir}/*_merged.vcf
-  do
-    output_base=$(basename "$f" | cut -d '_' -f 1)
-    echo "python script/filtervcf.py -v $f --panel-of-normals $panel_of_normals"
-    python script/filtervcf.py -v $f --panel-of-normals $panel_of_normals
-  done
-fi
+# if [ -d $dir ]
+# then
+#   echo $dir
+#   for f in ${dir}/*_merged.vcf
+#   do
+#     output_base=$(basename "$f" | cut -d '_' -f 1)
+#     echo "python script/filtervcf.py -v $f --panel-of-normals $panel_of_normals"
+#     python script/filtervcf.py -v $f --panel-of-normals $panel_of_normals
+#   done
+# fi
