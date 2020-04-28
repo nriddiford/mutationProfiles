@@ -39,7 +39,7 @@ rainfall <- function(..., snv_data=NULL, write=FALSE, title=NULL, chroms= c("2L"
           strip.text = element_text(size=20)
     )
 
-  p <- p + facet_wrap(~chrom, scale = "free_x", ncol = 6)
+  p <- p + facet_wrap(~chrom, scale = "free_x", ncol = length(chroms))
   #p<-p + scale_x_continuous("Mbs", breaks = seq(0,33,by=1), limits = c(0, 33), expand = c(0.01, 0.01))
   p <- p + scale_x_continuous("Mbs", breaks = seq(0,max(distances$pos), by = tick_by))
   p <- p + ylab("Genomic distance")

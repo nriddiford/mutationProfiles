@@ -43,7 +43,7 @@ snvStats <- function(..., snv_data=NULL){
   cat('\n')
   all_ts<-nrow(filter(snv_data, trans == "A>G" | trans == "C>T" | trans == "G>A" | trans == "T>C"))
   all_tv<-nrow(filter(snv_data, trans != "A>G" & trans != "C>T" & trans != "G>A" & trans != "T>C"))
-  ts_tv<-round((all_ts/all_tv), digits=2)
+  ts_tv<-round((all_ts/all_tv), digits=3)
   cat("ts/tv = ", ts_tv,  sep='', '\n')
 
 }
@@ -76,7 +76,9 @@ plot_snvs <- function(..., snv_data, colourSamples){
 
   p <- ggplot(calls_by_sample, aes(sample, n, fill = colour))
   p <- p + geom_bar(stat='identity')
-  p <- p + scale_y_continuous("Number of SNVs", limits=c(0,max(calls_by_sample$n)), breaks=seq(0,max(calls_by_sample$n), by=500), expand=c(0,0))
+  # p <- p + scale_y_continuous("Number of SNVs", limits=c(0,max(calls_by_sample$n + 10)), breaks=seq(0,max(calls_by_sample$n), by=500), expand=c(0,0))
+  p <- p + scale_y_continuous("Number of SNVs")
+
   p <- p + scale_x_discrete("Sample")
   p <- p + cleanTheme() +
     theme(panel.grid.major.y = element_line(color="grey80", size = 0.5, linetype = "dotted"),

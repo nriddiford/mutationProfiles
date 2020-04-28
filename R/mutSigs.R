@@ -8,7 +8,7 @@
 #' @keywords signatures
 #' @export
 
-mutSigs <- function(..., snv_data=NULL, by_sample=FALSE, pie=FALSE, write=FALSE){
+mutSigs <- function(..., snv_data=NULL, by_sample=FALSE, pie=FALSE, write=FALSE, print_spectrum=FALSE){
 
   if(!exists('scaling_factor')){
     cat("calculating trinucleotide frequencies in genome\n")
@@ -27,6 +27,7 @@ mutSigs <- function(..., snv_data=NULL, by_sample=FALSE, pie=FALSE, write=FALSE)
     cat("Plotting for all samples\n")
     snv_data$tissue = 'All'
     sigs.input <- mut.to.sigs.input(mut.ref = snv_data, sample.id = "tissue", chr = "chrom", pos = "pos", alt = "alt", ref = "ref", bsg = genome)
+    if(print_spectrum) return(sigs.input)
     sig_plot<-whichSignatures(tumor.ref = sigs.input, signatures.ref = signatures.cosmic, sample.id = 'All',
                               contexts.needed = TRUE,
                               tri.counts.method = scaling_factor

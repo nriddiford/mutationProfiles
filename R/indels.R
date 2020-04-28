@@ -42,17 +42,17 @@ plot_indels <- function(..., indel_data=NULL){
 indel_lengths <- function(..., indel_data=NULL, plot=TRUE, count=TRUE){
 
   if(missing(indel_data)){
-    indel_data <- mutationProfiles::getData(..., infile ='data/annotated_indels.txt', exclude=F, type = 'indel')
+    indel_data <- mutationProfiles::getData(..., infile ='data/annotated_indels.txt', type = 'indel')
   }
   indel_lengths <- indel_data %>%
-    dplyr::mutate(length = nchar(as.character(alt))) %>%
-    dplyr::mutate(type_class = as.factor(ifelse(length>3,
+    dplyr::mutate(length = nchar(as.character(ref)) - nchar(as.character(alt)),
+                  type = ifelse(length > 0, 'ins', 'del')) %>%
+    dplyr::mutate(type_class = as.factor(ifelse(abs(length)>3,
                                       paste0(tolower(type), '>', '3bp'),
-                                      paste0(tolower(type), '_', length, 'bp')
+                                      paste0(tolower(type), '_', abs(length), 'bp')
                                       ))) %>%
     dplyr::group_by(sample, type_class) %>%
     dplyr::tally()
-
 
   indel_lengths <- indel_lengths %>%
     dplyr::group_by(sample) %>%
@@ -61,7 +61,7 @@ indel_lengths <- function(..., indel_data=NULL, plot=TRUE, count=TRUE){
 
   if(plot){
     if(count) {
-      p <- ggplot(indel_lengths, aes(fct_reorder(sample, -n), n, fill=type_class))
+      p <- ggplot(indel_lengths, aes(fct_reorder(sample, -total), n, fill=type_class))
       ytitle <- "Number of calls"
     } else {
       p <- ggplot(indel_lengths, aes(fct_reorder(sample, -n), fraction, fill=type_class))

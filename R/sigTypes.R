@@ -18,6 +18,7 @@ sigTypes <- function(..., snv_data=NULL, write=FALSE, signatures=signatures.geno
   }
 
   snv_data <- snv_data %>%
+    dplyr::filter(...) %>%
     dplyr::group_by(sample) %>%
     dplyr::filter(max(row_number()) > 50) %>%
     droplevels() %>%
