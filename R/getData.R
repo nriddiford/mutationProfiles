@@ -6,7 +6,11 @@
 #' @import dplyr plyr
 #' @export
 #' @return Dataframe
-getData <- function(..., infile = "data/annotated_snvs.txt", expression_source = 'flygut', expression_data='/Users/Nick_curie/Documents/Curie/Data/RNA-Seq_data/Buchon_summary_ISCs.txt', type='snv', attach_info='data/samples_names_conversion.txt'){
+getData <- function(..., infile = system.file("extdata", "annotated_snvs.txt", package="mutationProfiles"),
+                    expression_source = 'flygut',
+                    expression_data='/Users/Nick_curie/Documents/Curie/Data/RNA-Seq_data/Buchon_summary_ISCs.txt',
+                    type='snv',
+                    attach_info='data/samples_names_conversion.txt'){
 
   cat("Filters applied:\n")
   input_list <- as.list(substitute(list(...)))
