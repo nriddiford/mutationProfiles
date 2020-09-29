@@ -62,6 +62,7 @@ def extract_somseq(options, tumour, normal):
     mode = 'r'
     if options.somseq.endswith('.gz'):
         mode = 'rb'
+
     vcf_reader = vcf.Reader(open(options.somseq, mode))
 
     somseq_vars = defaultdict(lambda: defaultdict(dict))
@@ -77,6 +78,8 @@ def extract_somseq(options, tumour, normal):
         tumour_gt, normal_gt = (record.genotype(tumour)['GT'], record.genotype(normal)['GT'])
         tumour_vaf, normal_vaf = (record.genotype(tumour)['VAF'], record.genotype(normal)['VAF'])
         tumour_dp, normal_dp = (record.genotype(tumour)['DP4'], record.genotype(normal)['DP4'])
+
+
 
         t_dict = {'GT': tumour_gt, 'VAF': tumour_vaf, 'DP': sum(tumour_dp)}
         n_dict = {'GT': normal_gt, 'VAF': normal_vaf, 'DP': sum(normal_dp)}
@@ -97,6 +100,7 @@ def combine_vars(options):
 
     merged_vars = []
     intersect = 0
+
     for c in somseq_vars:
         for p in somseq_vars[c]:
             ref, alt, callers, tumour, normal, filter = somseq_vars[c][p]

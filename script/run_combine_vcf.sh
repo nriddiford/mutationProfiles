@@ -14,12 +14,14 @@ usage() {
 freebayes=/Volumes/perso/Analysis/Analysis/Freebayes/vcf
 somaticSeq=/Volumes/perso/Analysis/Analysis/somaticSeq/vcf
 output_dir=$(pwd)
+config=data/samples.txt
 
 while getopts 'f:s:o:' flag; do
   case "${flag}" in
     s)  somaticSeq=${OPTARG};;
     f)  freebayes=${OPTARG};;
     o)  output_dir=${OPTARG};;
+    c)  config=${OPTARG};;
     h)  usage
     exit 0 ;;
   esac
@@ -40,6 +42,6 @@ then
     echo $output_base
     echo $f
     echo "$freebayes/${output_base}_freebayes.vcf.gz"
-    python script/combinevcf.py --somseq $f --freebayes $freebayes/${output_base}_freebayes.vcf.gz
+    python script/combinevcf.py --somseq $f --freebayes $freebayes/${output_base}_freebayes.vcf.gz --config $config
   done
 fi
