@@ -6,8 +6,8 @@ usage() {
   options:
     -v    process varscan calls
     -m    process mutect2 calls
-    -e    process enseble calls (somaticSeq + Freebayes)
-    -i    process varscan indel calls
+    -e    process ensemble calls (somaticSeq + Freebayes)
+    -i    process indel calls
     -a    annotate variants
     -c    clean up old files
     -g    path to genome.fasta
@@ -32,7 +32,7 @@ genome=/Users/Nick_curie/Documents/Curie/Data/Genomes/dmel_6.12.fa
 features=/Users/Nick_curie/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf
 #features=/Users/Nick/Documents/Curie/Data/Genomes/Dmel_v6.12/Features/dmel-all-r6.12.gtf # home
 
-while getopts 'nvmsaeichg:' flag; do
+while getopts 'nvmsaeichg:f:' flag; do
   case "${flag}" in
     v)  varscan=1 ;;
     m)  mutect=1 ;;
@@ -42,6 +42,7 @@ while getopts 'nvmsaeichg:' flag; do
     i)  indel=1 ;;
     c)  clean=1 ;;
     g)  genome=${OPTARG};;
+    f)  features=${OPTARG};;
     a)  annotate=1 ;;
     h)  usage
         exit 0 ;;
