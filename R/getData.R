@@ -41,7 +41,7 @@ getData <- function(..., infile = system.file("extdata", "annotated_snvs.txt", p
   }
   if(expression_source == 'flygut'){
     cat("Reading expression data from source: 'flygut [Buchon]'\n\n")
-    expression_data = read.delim('/Users/Nick_curie/Documents/Curie/Data/RNA-Seq_data/Buchon_summary_ISCs.txt')
+    expression_data = read.delim(expression_data)
     colnames(expression_data) <- c('id', 'symbol', 'name', 'isc', 'eb', 'ec', 'ee', 'vm')
     seq_data <- expression_data %>%
       dplyr::mutate(fpkm = isc) %>%
