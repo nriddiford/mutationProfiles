@@ -48,7 +48,8 @@ getTriFromFasta <- function(fastaFile = '~/Documents/Curie/Data/Genomes/Dmel_v6.
 
   data_frame(
     data = triCount,
-    cat = names(triCount))
+    cat = names(triCount)
+    )
 
   d <- triCount %>%
     data.frame() %>%

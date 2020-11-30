@@ -25,7 +25,6 @@ sigTypes <- function(..., snv_data=NULL, write=FALSE, signatures=signatures.geno
     dplyr::ungroup() %>%
     as.data.frame()
 
-
   suppressMessages(require(BSgenome.Dmelanogaster.UCSC.dm6))
   suppressMessages(require(deconstructSigs))
 
