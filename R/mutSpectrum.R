@@ -4,10 +4,13 @@
 #' @import ggplot2
 #' @keywords spectrum
 #' @export
-mutSpectrum <- function(..., snv_data=NULL, write=FALSE, max_y=25){
+mutSpectrum <- function(..., snv_data=NULL, write=FALSE, max_y=25, collapse_tris = FALSE){
   if(missing(snv_data)){
     snv_data<-getData(...)
   }
+
+  snv_data <- snv_data %>%
+    dplyr::filter(...)
 
   # Should correct for genome wide occurances...
   # comnined_data <- snv_data %>%
@@ -22,7 +25,11 @@ mutSpectrum <- function(..., snv_data=NULL, write=FALSE, max_y=25){
   cat("Showing global contribution of tri class to mutation load", "\n")
 
   p <- ggplot(snv_data)
-  p <- p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), alpha=0.7, position="dodge",stat="count")
+  if(collapse_tris){
+    p <- p + geom_bar(aes(x = grouped_trans, y = (..count..)/sum(..count..), group = grouped_trans, fill = grouped_trans), alpha=0.7, position="dodge",stat="count")
+  } else {
+    p <- p + geom_bar(aes(x = decomposed_tri, y = (..count..)/sum(..count..), group = decomposed_tri, fill = grouped_trans), alpha=0.7, position="dodge",stat="count")
+  }
   p <- p + scale_y_continuous("Contribution to mutation load", limits = c(0, max_y/100), breaks=seq(0,max_y/100,by=0.025), labels=paste0(seq(0,max_y,by=2.5), "%"), expand = c(0.0, .0005))
   p <- p + scale_x_discrete("Genomic context", expand = c(.005, .005))
   p <- p + cleanTheme() +
