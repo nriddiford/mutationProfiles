@@ -24,7 +24,7 @@ def find_normal(options):
     for x in it:
         s[x] = next(it)
 
-    if s[sample]:
+    if sample in s:
         print("Tumour: %s" % sample)
         print("Normal: %s" % s[sample])
         return sample, s[sample]
@@ -173,7 +173,7 @@ def get_args():
     parser.add_option("--config", dest="config", action="store", help="mapping for tumour/normal samples")
     parser.add_option("-o", "--out_file", dest="out_file", action="store", help="File to write annotated vars to")
     parser.set_defaults(pon='/Volumes/perso/Analysis/Analysis/Mutect2/panel_of_normals.vcf.gz',
-                        config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.txt',
+                        config='/Users/Nick_curie/Desktop/script_test/alleleFreqs/data/samples.tsv',
                         chroms=['2L', '2R', '3L', '3R', '4', 'X', 'Y'])
 
     options, args = parser.parse_args()
