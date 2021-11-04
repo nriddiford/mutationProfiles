@@ -17,9 +17,9 @@ cd mutationProfiles
 
 `trinucs.pl` requires [BioPerl](http://bioperl.org/INSTALL.html), which can be installed using cpanm:
 
-```
+```bash
 brew install cpanm
-cpanm Bio::Perl
+sudo cpanm Bio::Perl
 ```
 
 and [vcfParse](https://github.com/nriddiford/vcfParse), which can be installed from github:
